@@ -1,0 +1,213 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ContactMessage;
+use App\Models\Item;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class AdminController extends Controller
+{
+    public function overview(): JsonResponse
+    {
+        return response()->json([
+            'stats' => [
+                'total_users' => User::query()->where('role', 'user')->count(),
+                'active_users' => User::query()->where('role', 'user')->where('status', 'active')->count(),
+                'pending_items' => Item::query()->where('status', 'pending')->count(),
+                'approved_items' => Item::query()->where('status', 'approved')->count(),
+                'contact_messages' => ContactMessage::query()->count(),
+                'new_messages' => ContactMessage::query()->where('status', 'new')->count(),
+            ],
+            'recent_users' => User::query()
+                ->latest()
+                ->limit(5)
+                ->get()
+                ->map(fn (User $user) => $this->transformUser($user)),
+            'recent_items' => Item::query()
+                ->with(['user:id,name,email'])
+                ->latest()
+                ->limit(6)
+                ->get()
+                ->map(fn (Item $item) => $this->transformItem($item)),
+            'recent_contact_messages' => ContactMessage::query()
+                ->latest()
+                ->limit(5)
+                ->get()
+                ->map(fn (ContactMessage $message) => $this->transformContactMessage($message)),
+        ]);
+    }
+
+    public function users(): JsonResponse
+    {
+        $users = User::query()
+            ->latest()
+            ->get()
+            ->map(fn (User $user) => $this->transformUser($user));
+
+        return response()->json([
+            'users' => $users,
+        ]);
+    }
+
+    public function updateUser(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'role' => ['sometimes', 'in:admin,user'],
+            'status' => ['sometimes', 'in:active,disabled'],
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'message' => 'User updated successfully.',
+            'user' => $this->transformUser($user->fresh()),
+        ]);
+    }
+
+    public function items(): JsonResponse
+    {
+        $items = Item::query()
+            ->with(['user:id,name,email', 'category:id,name', 'approvedBy:id,name'])
+            ->latest()
+            ->get()
+            ->map(fn (Item $item) => $this->transformItem($item));
+
+        return response()->json([
+            'items' => $items,
+        ]);
+    }
+
+    public function updateItem(Request $request, Item $item): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:pending,approved,rejected,claimed,returned'],
+            'admin_note' => ['nullable', 'string'],
+        ]);
+
+        $item->status = $validated['status'];
+        $item->admin_note = $validated['admin_note'] ?? null;
+
+        if ($validated['status'] === 'approved') {
+            $item->approved_by = $request->user()->id;
+            $item->approved_at = now();
+            $item->rejected_at = null;
+        }
+
+        if ($validated['status'] === 'rejected') {
+            $item->rejected_at = now();
+        }
+
+        if ($validated['status'] === 'returned') {
+            $item->returned_at = now();
+        }
+
+        if ($validated['status'] === 'pending') {
+            $item->approved_at = null;
+            $item->approved_by = null;
+            $item->rejected_at = null;
+            $item->returned_at = null;
+        }
+
+        $item->save();
+
+        return response()->json([
+            'message' => 'Item updated successfully.',
+            'item' => $this->transformItem($item->fresh(['user:id,name,email', 'category:id,name', 'approvedBy:id,name'])),
+        ]);
+    }
+
+    public function contactMessages(): JsonResponse
+    {
+        $messages = ContactMessage::query()
+            ->latest()
+            ->get()
+            ->map(fn (ContactMessage $message) => $this->transformContactMessage($message));
+
+        return response()->json([
+            'messages' => $messages,
+        ]);
+    }
+
+    public function updateContactMessage(Request $request, ContactMessage $contactMessage): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:new,read,replied'],
+        ]);
+
+        $contactMessage->update($validated);
+
+        return response()->json([
+            'message' => 'Contact message updated successfully.',
+            'contact_message' => $this->transformContactMessage($contactMessage->fresh()),
+        ]);
+    }
+
+    protected function transformUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'nrc_no' => $user->nrc_no,
+            'role' => $user->role,
+            'status' => $user->status,
+            'created_at' => optional($user->created_at)?->toISOString(),
+            'profile_image_url' => $user->profile_image
+                ? Storage::disk('public')->url($user->profile_image)
+                : null,
+        ];
+    }
+
+    protected function transformItem(Item $item): array
+    {
+        return [
+            'id' => $item->id,
+            'title' => $item->title,
+            'type' => $item->type,
+            'status' => $item->status,
+            'description' => $item->description,
+            'location' => $item->location,
+            'item_date' => optional($item->item_date)?->format('Y-m-d'),
+            'admin_note' => $item->admin_note,
+            'created_at' => optional($item->created_at)?->toISOString(),
+            'image_url' => $item->image
+                ? Storage::disk('public')->url($item->image)
+                : null,
+            'user' => $item->user ? [
+                'id' => $item->user->id,
+                'name' => $item->user->name,
+                'email' => $item->user->email,
+            ] : null,
+            'category' => $item->category ? [
+                'id' => $item->category->id,
+                'name' => $item->category->name,
+            ] : null,
+            'approved_by' => $item->approvedBy ? [
+                'id' => $item->approvedBy->id,
+                'name' => $item->approvedBy->name,
+            ] : null,
+        ];
+    }
+
+    protected function transformContactMessage(ContactMessage $message): array
+    {
+        return [
+            'id' => $message->id,
+            'name' => $message->name,
+            'email' => $message->email,
+            'phone' => $message->phone,
+            'subject' => $message->subject,
+            'message' => $message->message,
+            'status' => $message->status,
+            'created_at' => optional($message->created_at)?->toISOString(),
+        ];
+    }
+}

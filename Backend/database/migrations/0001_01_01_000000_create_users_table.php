@@ -15,8 +15,15 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->string('phone')->nullable();
+            $table->string('nrc_no')->nullable();
+            $table->string('nrc_front_photo')->nullable();
+            $table->string('nrc_back_photo')->nullable();
+            $table->string('profile_image')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->enum('role', ['admin', 'user'])->default('user');
+            $table->enum('status', ['active', 'disabled'])->default('active');
             $table->rememberToken();
             $table->timestamps();
         });
