@@ -21,4 +21,9 @@ class Category extends Model
     {
         return $this->hasMany(Item::class);
     }
+
+    public function communityPosts(): HasMany
+    {
+        return $this->hasMany(CommunityPost::class);
+    }
 }

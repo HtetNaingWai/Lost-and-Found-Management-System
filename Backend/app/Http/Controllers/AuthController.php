@@ -6,7 +6,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
@@ -110,7 +109,13 @@ class AuthController extends Controller
             'role' => $user->role,
             'status' => $user->status,
             'profile_image_url' => $user->profile_image
-                ? Storage::disk('public')->url($user->profile_image)
+                ? asset('storage/'.$user->profile_image)
+                : null,
+            'nrc_front_photo_url' => $user->nrc_front_photo
+                ? asset('storage/'.$user->nrc_front_photo)
+                : null,
+            'nrc_back_photo_url' => $user->nrc_back_photo
+                ? asset('storage/'.$user->nrc_back_photo)
                 : null,
         ];
     }

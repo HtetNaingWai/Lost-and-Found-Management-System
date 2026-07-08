@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CommunityPost;
 use App\Models\ContactMessage;
 use App\Models\Item;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -17,8 +17,8 @@ class AdminController extends Controller
             'stats' => [
                 'total_users' => User::query()->where('role', 'user')->count(),
                 'active_users' => User::query()->where('role', 'user')->where('status', 'active')->count(),
-                'pending_items' => Item::query()->where('status', 'pending')->count(),
-                'approved_items' => Item::query()->where('status', 'approved')->count(),
+                'pending_items' => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'pending')->count(),
+                'approved_items' => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'approved')->count(),
                 'contact_messages' => ContactMessage::query()->count(),
                 'new_messages' => ContactMessage::query()->where('status', 'new')->count(),
             ],
@@ -27,12 +27,13 @@ class AdminController extends Controller
                 ->limit(5)
                 ->get()
                 ->map(fn (User $user) => $this->transformUser($user)),
-            'recent_items' => Item::query()
-                ->with(['user:id,name,email'])
+            'recent_items' => CommunityPost::query()
+                ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+                ->whereIn('post_type', ['lost', 'found'])
                 ->latest()
                 ->limit(6)
                 ->get()
-                ->map(fn (Item $item) => $this->transformItem($item)),
+                ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post)),
             'recent_contact_messages' => ContactMessage::query()
                 ->latest()
                 ->limit(5)
@@ -81,6 +82,114 @@ class AdminController extends Controller
 
         return response()->json([
             'items' => $items,
+        ]);
+    }
+
+    public function communityPosts(): JsonResponse
+    {
+        return response()->json([
+            'posts' => CommunityPost::query()
+                ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+                ->whereIn('post_type', ['lost', 'found'])
+                ->latest()
+                ->get()
+                ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post)),
+        ]);
+    }
+
+    public function pendingCommunityPosts(): JsonResponse
+    {
+        return response()->json([
+            'posts' => CommunityPost::query()
+                ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+                ->whereIn('post_type', ['lost', 'found'])
+                ->where('status', 'pending')
+                ->latest()
+                ->get()
+                ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post)),
+        ]);
+    }
+
+    public function updateCommunityPost(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:pending,approved,rejected'],
+            'admin_note' => ['nullable', 'string'],
+        ]);
+
+        if ($validated['status'] === 'approved') {
+            $communityPost->status = 'approved';
+            $communityPost->approved_by = $request->user()->id;
+            $communityPost->approved_at = now();
+            $communityPost->rejected_at = null;
+        }
+
+        if ($validated['status'] === 'rejected') {
+            $communityPost->status = 'rejected';
+            $communityPost->rejected_at = now();
+            $communityPost->approved_by = null;
+            $communityPost->approved_at = null;
+        }
+
+        if ($validated['status'] === 'pending') {
+            $communityPost->status = 'pending';
+            $communityPost->approved_by = null;
+            $communityPost->approved_at = null;
+            $communityPost->rejected_at = null;
+        }
+
+        $communityPost->admin_note = $validated['admin_note'] ?? null;
+        $communityPost->save();
+
+        return response()->json([
+            'message' => 'Community post updated successfully.',
+            'post' => $this->transformCommunityPost($communityPost->fresh([
+                'user:id,name,email,profile_image',
+                'category:id,name',
+                'approvedBy:id,name',
+            ])),
+        ]);
+    }
+
+    public function approveCommunityPost(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        $communityPost->status = 'approved';
+        $communityPost->admin_note = $request->input('admin_note');
+        $communityPost->approved_by = $request->user()->id;
+        $communityPost->approved_at = now();
+        $communityPost->rejected_at = null;
+        $communityPost->save();
+
+        return response()->json([
+            'message' => 'Community post approved successfully.',
+            'post' => $this->transformCommunityPost($communityPost->fresh([
+                'user:id,name,email,profile_image',
+                'category:id,name',
+                'approvedBy:id,name',
+            ])),
+        ]);
+    }
+
+    public function rejectCommunityPost(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        $validated = $request->validate([
+            'admin_note' => ['nullable', 'string'],
+        ]);
+
+        $communityPost->status = 'rejected';
+        $communityPost->admin_note = $validated['admin_note'] ?? null;
+        $communityPost->rejected_at = now();
+        $communityPost->approved_at = null;
+        $communityPost->approved_by = null;
+        $communityPost->save();
+
+        return response()->json([
+            'message' => 'Community post rejected successfully.',
+            'post' => $this->transformCommunityPost($communityPost->fresh([
+                'user:id,name,email,profile_image',
+                'category:id,name',
+                'approvedBy:id,name',
+            ])),
         ]);
     }
 
@@ -161,7 +270,7 @@ class AdminController extends Controller
             'status' => $user->status,
             'created_at' => optional($user->created_at)?->toISOString(),
             'profile_image_url' => $user->profile_image
-                ? Storage::disk('public')->url($user->profile_image)
+                ? asset('storage/'.$user->profile_image)
                 : null,
         ];
     }
@@ -179,7 +288,7 @@ class AdminController extends Controller
             'admin_note' => $item->admin_note,
             'created_at' => optional($item->created_at)?->toISOString(),
             'image_url' => $item->image
-                ? Storage::disk('public')->url($item->image)
+                ? asset('storage/'.$item->image)
                 : null,
             'user' => $item->user ? [
                 'id' => $item->user->id,
@@ -208,6 +317,42 @@ class AdminController extends Controller
             'message' => $message->message,
             'status' => $message->status,
             'created_at' => optional($message->created_at)?->toISOString(),
+        ];
+    }
+
+    protected function transformCommunityPost(CommunityPost $post): array
+    {
+        return [
+            'id' => $post->id,
+            'title' => $post->post_type === 'community' && $post->title === 'Community Post'
+                ? null
+                : $post->title,
+            'type' => $post->post_type,
+            'post_type' => $post->post_type,
+            'status' => $post->status,
+            'description' => $post->content,
+            'content' => $post->content,
+            'location' => $post->location,
+            'item_date' => optional($post->item_date)?->format('Y-m-d'),
+            'admin_note' => $post->admin_note,
+            'created_at' => optional($post->created_at)?->toISOString(),
+            'image_url' => $post->image ? asset('storage/'.$post->image) : null,
+            'user' => $post->user ? [
+                'id' => $post->user->id,
+                'name' => $post->user->name,
+                'email' => $post->user->email,
+                'profile_image_url' => $post->user->profile_image
+                    ? asset('storage/'.$post->user->profile_image)
+                    : null,
+            ] : null,
+            'category' => $post->category ? [
+                'id' => $post->category->id,
+                'name' => $post->category->name,
+            ] : null,
+            'approved_by' => $post->approvedBy ? [
+                'id' => $post->approvedBy->id,
+                'name' => $post->approvedBy->name,
+            ] : null,
         ];
     }
 }

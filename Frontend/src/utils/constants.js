@@ -43,11 +43,9 @@ export const initialRegisterValues = {
 }
 
 export const dashboardMenuItems = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'grid' },
   { key: 'community', label: 'Community', icon: 'community' },
   { key: 'lost-items', label: 'Lost Items', icon: 'search' },
   { key: 'found-items', label: 'Found Items', icon: 'inventory' },
-  { key: 'report-items', label: 'Report Items', icon: 'plusSquare' },
   { key: 'messages', label: 'Messages', icon: 'chat' },
   { key: 'contact', label: 'Contact Us', icon: 'mail' },
 ]
@@ -55,7 +53,8 @@ export const dashboardMenuItems = [
 export const adminDashboardMenuItems = [
   { key: 'dashboard', label: 'Admin Dashboard', icon: 'grid' },
   { key: 'users', label: 'Users', icon: 'group' },
-  { key: 'items', label: 'Items', icon: 'inventory' },
+  { key: 'admin-lost-items', label: 'Lost Items', icon: 'search' },
+  { key: 'admin-found-items', label: 'Found Items', icon: 'inventory' },
   { key: 'contact-messages', label: 'Contact Messages', icon: 'mail' },
 ]
 
@@ -69,7 +68,8 @@ export const profileDropdownItems = [
 export const adminProfileDropdownItems = [
   { key: 'profile', label: 'Admin Profile', icon: 'userCircle' },
   { key: 'users', label: 'Manage Users', icon: 'group' },
-  { key: 'items', label: 'Manage Items', icon: 'inventory' },
+  { key: 'admin-lost-items', label: 'Manage Lost Items', icon: 'search' },
+  { key: 'admin-found-items', label: 'Manage Found Items', icon: 'inventory' },
   { key: 'contact-messages', label: 'Contact Messages', icon: 'mail' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]

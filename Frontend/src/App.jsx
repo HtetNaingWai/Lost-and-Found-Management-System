@@ -46,6 +46,11 @@ function App() {
     setAuthModal(null)
   }
 
+  const handleUserUpdate = (user) => {
+    saveAuth({ token: authToken, user })
+    setAuthUser(user)
+  }
+
   const handleLogout = async () => {
     try {
       if (authToken) {
@@ -75,7 +80,14 @@ function App() {
   }
 
   if (authUser) {
-    return <DashboardLayout user={authUser} token={authToken} onLogout={handleLogout} />
+    return (
+      <DashboardLayout
+        user={authUser}
+        token={authToken}
+        onLogout={handleLogout}
+        onUserUpdate={handleUserUpdate}
+      />
+    )
   }
 
   return (

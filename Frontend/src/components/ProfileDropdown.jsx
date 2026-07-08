@@ -5,7 +5,8 @@ const navigationMap = {
   'my-items': 'lost-items',
   'my-claims': 'messages',
   users: 'users',
-  items: 'items',
+  'admin-lost-items': 'admin-lost-items',
+  'admin-found-items': 'admin-found-items',
   'contact-messages': 'contact-messages',
 }
 
