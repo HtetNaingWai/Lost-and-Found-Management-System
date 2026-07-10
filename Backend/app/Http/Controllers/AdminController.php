@@ -2,43 +2,86 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Claim;
 use App\Models\CommunityPost;
 use App\Models\ContactMessage;
 use App\Models\Item;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
 class AdminController extends Controller
 {
     public function overview(): JsonResponse
     {
+        $pendingPosts = $this->safe(fn () => CommunityPost::query()
+            ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+            ->where('status', 'pending')
+            ->latest()
+            ->limit(8)
+            ->get()
+            ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post))
+            ->values()
+            ->all(), []);
+
+        $recentUsers = $this->safe(fn () => User::query()
+            ->where('role', 'user')
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn (User $user) => $this->transformUser($user))
+            ->values()
+            ->all(), []);
+
+        $recentPosts = $this->safe(fn () => CommunityPost::query()
+            ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+            ->latest()
+            ->limit(6)
+            ->get()
+            ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post))
+            ->values()
+            ->all(), []);
+
+        $recentClaims = $this->safe(fn () => Claim::query()
+            ->with(['user:id,name,email,profile_image', 'item:id,title,type,status', 'reviewedBy:id,name'])
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn (Claim $claim) => $this->transformClaim($claim))
+            ->values()
+            ->all(), []);
+
+        $recentContactMessages = $this->safe(fn () => ContactMessage::query()
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn (ContactMessage $message) => $this->transformContactMessage($message))
+            ->values()
+            ->all(), []);
+
         return response()->json([
             'stats' => [
-                'total_users' => User::query()->where('role', 'user')->count(),
-                'active_users' => User::query()->where('role', 'user')->where('status', 'active')->count(),
-                'pending_items' => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'pending')->count(),
-                'approved_items' => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'approved')->count(),
-                'contact_messages' => ContactMessage::query()->count(),
-                'new_messages' => ContactMessage::query()->where('status', 'new')->count(),
+                'total_users' => $this->safe(fn () => User::query()->where('role', 'user')->count(), 0),
+                'active_users' => $this->safe(fn () => User::query()->where('role', 'user')->where('status', 'active')->count(), 0),
+                'pending_posts' => $this->safe(fn () => CommunityPost::query()->where('status', 'pending')->count(), 0),
+                'approved_posts' => $this->safe(fn () => CommunityPost::query()->where('status', 'approved')->count(), 0),
+                'rejected_posts' => $this->safe(fn () => CommunityPost::query()->where('status', 'rejected')->count(), 0),
+                'lost_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'lost')->count(), 0),
+                'found_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'found')->count(), 0),
+                'claims' => $this->safe(fn () => Claim::query()->count(), 0),
+                'contact_messages' => $this->safe(fn () => ContactMessage::query()->count(), 0),
+                'new_messages' => $this->safe(fn () => ContactMessage::query()->where('status', 'new')->count(), 0),
+                'pending_items' => $this->safe(fn () => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'pending')->count(), 0),
+                'approved_items' => $this->safe(fn () => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'approved')->count(), 0),
+                'rejected_items' => $this->safe(fn () => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'rejected')->count(), 0),
             ],
-            'recent_users' => User::query()
-                ->latest()
-                ->limit(5)
-                ->get()
-                ->map(fn (User $user) => $this->transformUser($user)),
-            'recent_items' => CommunityPost::query()
-                ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
-                ->whereIn('post_type', ['lost', 'found'])
-                ->latest()
-                ->limit(6)
-                ->get()
-                ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post)),
-            'recent_contact_messages' => ContactMessage::query()
-                ->latest()
-                ->limit(5)
-                ->get()
-                ->map(fn (ContactMessage $message) => $this->transformContactMessage($message)),
+            'pending_posts' => $pendingPosts,
+            'recent_activity' => $this->buildRecentActivity($recentUsers, $recentPosts, $recentClaims, $recentContactMessages),
+            'recent_users' => $recentUsers,
+            'recent_items' => $recentPosts,
+            'recent_claims' => $recentClaims,
+            'recent_contact_messages' => $recentContactMessages,
         ]);
     }
 
@@ -90,7 +133,6 @@ class AdminController extends Controller
         return response()->json([
             'posts' => CommunityPost::query()
                 ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
-                ->whereIn('post_type', ['lost', 'found'])
                 ->latest()
                 ->get()
                 ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post)),
@@ -102,11 +144,25 @@ class AdminController extends Controller
         return response()->json([
             'posts' => CommunityPost::query()
                 ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
-                ->whereIn('post_type', ['lost', 'found'])
                 ->where('status', 'pending')
                 ->latest()
                 ->get()
                 ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post)),
+        ]);
+    }
+
+    public function claims(): JsonResponse
+    {
+        $claims = $this->safe(fn () => Claim::query()
+            ->with(['user:id,name,email,profile_image', 'item:id,title,type,status,location,item_date,image', 'reviewedBy:id,name'])
+            ->latest()
+            ->get()
+            ->map(fn (Claim $claim) => $this->transformClaim($claim))
+            ->values()
+            ->all(), []);
+
+        return response()->json([
+            'claims' => $claims,
         ]);
     }
 
@@ -320,6 +376,42 @@ class AdminController extends Controller
         ];
     }
 
+    protected function transformClaim(Claim $claim): array
+    {
+        return [
+            'id' => $claim->id,
+            'status' => $claim->status,
+            'proof_description' => $claim->proof_description,
+            'contact_phone' => $claim->contact_phone,
+            'admin_note' => $claim->admin_note,
+            'reviewed_at' => optional($claim->reviewed_at)?->toISOString(),
+            'created_at' => optional($claim->created_at)?->toISOString(),
+            'user' => $claim->user ? [
+                'id' => $claim->user->id,
+                'name' => $claim->user->name,
+                'email' => $claim->user->email,
+                'profile_image_url' => $claim->user->profile_image
+                    ? asset('storage/'.$claim->user->profile_image)
+                    : null,
+            ] : null,
+            'item' => $claim->item ? [
+                'id' => $claim->item->id,
+                'title' => $claim->item->title,
+                'type' => $claim->item->type,
+                'status' => $claim->item->status,
+                'location' => $claim->item->location,
+                'item_date' => optional($claim->item->item_date)?->format('Y-m-d'),
+                'image_url' => $claim->item->image
+                    ? asset('storage/'.$claim->item->image)
+                    : null,
+            ] : null,
+            'reviewed_by' => $claim->reviewedBy ? [
+                'id' => $claim->reviewedBy->id,
+                'name' => $claim->reviewedBy->name,
+            ] : null,
+        ];
+    }
+
     protected function transformCommunityPost(CommunityPost $post): array
     {
         return [
@@ -354,5 +446,73 @@ class AdminController extends Controller
                 'name' => $post->approvedBy->name,
             ] : null,
         ];
+    }
+
+    protected function buildRecentActivity(
+        array $recentUsers,
+        array $recentPosts,
+        array $recentClaims,
+        array $recentContactMessages
+    ): array {
+        $activities = [
+            ...array_map(fn (array $user) => [
+                'id' => 'user-'.$user['id'],
+                'type' => 'user',
+                'title' => 'User registered',
+                'detail' => $user['name'].' created a FindIt account.',
+                'time' => $user['created_at'],
+                'icon' => 'personAdd',
+            ], $recentUsers),
+            ...array_map(fn (array $post) => [
+                'id' => 'post-'.$post['id'],
+                'type' => 'post',
+                'title' => match ($post['status']) {
+                    'approved' => 'Post approved',
+                    'rejected' => 'Post rejected',
+                    default => 'Post submitted',
+                },
+                'detail' => trim(($post['user']['name'] ?? 'A user').' submitted '.($post['title'] ?: ucfirst($post['post_type'])).'.'),
+                'time' => $post['created_at'],
+                'icon' => match ($post['status']) {
+                    'approved' => 'shield',
+                    'rejected' => 'close',
+                    default => 'document',
+                },
+            ], $recentPosts),
+            ...array_map(fn (array $claim) => [
+                'id' => 'claim-'.$claim['id'],
+                'type' => 'claim',
+                'title' => 'Claim requested',
+                'detail' => trim(($claim['user']['name'] ?? 'A user').' requested claim review for '.($claim['item']['title'] ?? 'an item').'.'),
+                'time' => $claim['created_at'],
+                'icon' => 'clipboard',
+            ], $recentClaims),
+            ...array_map(fn (array $message) => [
+                'id' => 'contact-'.$message['id'],
+                'type' => 'contact',
+                'title' => 'Contact message received',
+                'detail' => trim($message['name'].' sent a message'.($message['subject'] ? ' about "'.$message['subject'].'".' : '.')),
+                'time' => $message['created_at'],
+                'icon' => 'mail',
+            ], $recentContactMessages),
+        ];
+
+        usort($activities, function (array $left, array $right) {
+            $leftTime = $left['time'] ? strtotime($left['time']) : 0;
+            $rightTime = $right['time'] ? strtotime($right['time']) : 0;
+
+            return $rightTime <=> $leftTime;
+        });
+
+        return array_slice($activities, 0, 10);
+    }
+
+    protected function safe(callable $callback, mixed $fallback): mixed
+    {
+        try {
+            return $callback();
+        } catch (Throwable) {
+            return $fallback;
+        }
     }
 }

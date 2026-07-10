@@ -1,0 +1,236 @@
+.profile-photo-panel {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.profile-photo-large {
+  width: 108px;
+  height: 108px;
+  font-size: 34px;
+}
+
+.profile-photo-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.profile-form {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-form-grid,
+.nrc-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.profile-form-field {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-form-field span {
+  color: #1f2a23;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.profile-form-field input,
+.profile-form-field select,
+.profile-form-field textarea,
+.profile-password-shell,
+.nrc-photo-card {
+  border: 1px solid rgba(20, 103, 40, 0.12);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.profile-form-field input,
+.profile-form-field select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  color: #2c3732;
+}
+
+.profile-form-field textarea {
+  width: 100%;
+  padding: 14px;
+  color: #2c3732;
+  resize: vertical;
+}
+
+.profile-form-field input[type='file'] {
+  min-height: auto;
+  padding: 12px 14px;
+}
+
+.profile-form-field-full {
+  grid-column: 1 / -1;
+}
+
+.profile-password-shell {
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+
+.profile-password-shell input {
+  border: 0;
+  background: transparent;
+}
+
+.profile-password-toggle {
+  width: 22px;
+  height: 22px;
+  color: #6a746e;
+  cursor: pointer;
+}
+
+.profile-password-toggle svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.profile-form-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.settings-feedback {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-feedback.is-error {
+  color: #b3271f;
+}
+
+.settings-feedback.is-success {
+  color: #146728;
+}
+
+.nrc-photo-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.nrc-photo-card strong {
+  color: #1f2a23;
+  font-size: 14px;
+}
+
+.nrc-photo-image,
+.nrc-photo-empty {
+  width: 100%;
+  min-height: 180px;
+  border-radius: 14px;
+}
+
+.nrc-photo-image {
+  object-fit: cover;
+  background: #eef3ef;
+}
+
+.nrc-photo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #f5f8f5;
+  color: #6c7770;
+  text-align: center;
+}
+
+.settings-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(20, 103, 40, 0.08);
+}
+
+.settings-list div:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settings-list strong {
+  color: #1f2a23;
+  font-size: 14px;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #e8f8ea;
+  color: #146728;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+
+.auth-input-shell,
+.profile-form-field input,
+.profile-form-field textarea,
+.profile-form-field select,
+.messages-composer textarea,
+.community-form-field input,
+.community-form-field textarea,
+.community-form-field select,
+.admin-select-shell,
+.admin-note-input {
+  border-color: rgba(225, 29, 46, 0.16);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.auth-input-shell:focus-within,
+.profile-form-field input:focus,
+.profile-form-field textarea:focus,
+.profile-form-field select:focus,
+.messages-composer textarea:focus,
+.community-form-field input:focus,
+.community-form-field textarea:focus,
+.community-form-field select:focus,
+.admin-select-shell:focus-within,
+.admin-note-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(225, 29, 46, 0.1);
+  outline: none;
+}
+
+.upload-box {
+  border: 2px dashed rgba(225, 29, 46, 0.24);
+  background: linear-gradient(180deg, rgba(255, 245, 246, 0.75), rgba(255, 255, 255, 0.82));
+}
+
+.upload-box.has-file,
+.upload-box:hover {
+  border-color: var(--primary);
+}
+
+.form-error-banner {
+  background: rgba(225, 29, 46, 0.08);
+  color: var(--primary-dark);
+}
+
+.field-error,
+.settings-feedback.is-error {
+  color: var(--primary-dark);
+}
+
+.settings-feedback.is-success {
+  color: var(--primary);
+}
+

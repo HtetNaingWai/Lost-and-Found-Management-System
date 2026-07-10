@@ -17,11 +17,17 @@ function LandingPage({ onOpenModal }) {
 
           <div className="container hero-content">
             <div className="hero-card">
-              <h1>FindIt</h1>
+              <p className="hero-eyebrow">
+                <Icon name="shield" />
+                <span>Trusted Community Recovery</span>
+              </p>
+              <h1>
+                Lost Something?
+                <span> We&apos;re Here to Help.</span>
+              </h1>
               <p>
-                A community-based lost and found platform that helps people
-                report lost items, submit found items, and reconnect belongings
-                with their rightful owners.
+                Report lost items, track found belongings, and reconnect with your
+                community safely.
               </p>
               <div className="hero-actions">
                 <button
@@ -29,15 +35,21 @@ function LandingPage({ onOpenModal }) {
                   className="button button-primary"
                   onClick={() => onOpenModal('register')}
                 >
-                  Register
+                  <span>Create Account</span>
                 </button>
                 <button
                   type="button"
                   className="button button-outline-dark"
                   onClick={() => onOpenModal('login')}
                 >
-                  Login
+                  
+                  <span>Login</span>
                 </button>
+              </div>
+              <div className="hero-trust-points">
+                <span><Icon name="shield" /> Secure reporting</span>
+                <span><Icon name="community" /> Community visibility</span>
+                <span><Icon name="inventory" /> Faster recovery</span>
               </div>
             </div>
           </div>
@@ -59,7 +71,7 @@ function LandingPage({ onOpenModal }) {
               </div>
 
               <div className="info-emblem" aria-hidden="true">
-                <Icon name="community" />
+                <Icon name="search" />
               </div>
             </div>
           </div>
@@ -116,8 +128,8 @@ function LandingPage({ onOpenModal }) {
           <div className="container cta-inner">
             <h2>Lost something or found something?</h2>
             <p>
-              Create an account today to help keep our community connected and
-              ensure belongings find their way home.
+              Create an account today to report, track, and recover belongings
+              with confidence.
             </p>
             <div className="cta-actions">
               <button
@@ -125,14 +137,14 @@ function LandingPage({ onOpenModal }) {
                 className="button button-soft button-large"
                 onClick={() => onOpenModal('register')}
               >
-                Register Now
+                <span>Register</span>
               </button>
               <button
                 type="button"
                 className="button button-outline button-large"
                 onClick={() => onOpenModal('login')}
               >
-                Login
+                <span>Login</span>
               </button>
             </div>
           </div>
@@ -143,7 +155,10 @@ function LandingPage({ onOpenModal }) {
         <div className="container footer-inner">
           <a className="brand brand-footer" href="#home">
             <BrandMark />
-            <span>FindIt</span>
+            <span className="brand-copy">
+              <strong>FindIt</strong>
+              <small>Lost &amp; Found</small>
+            </span>
           </a>
 
           <nav className="footer-links" aria-label="Footer">
@@ -153,7 +168,7 @@ function LandingPage({ onOpenModal }) {
             <a href="#terms">Terms of Service</a>
           </nav>
 
-          <p className="footer-copy">© 2024 FindIt. All rights reserved.</p>
+          <p className="footer-copy">@2026 FindIt. All rights reserved.</p>
         </div>
       </footer>
     </div>

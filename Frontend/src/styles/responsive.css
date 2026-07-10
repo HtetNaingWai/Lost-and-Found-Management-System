@@ -1,0 +1,334 @@
+@media (max-width: 1180px) {
+  .container {
+    width: min(100% - 48px, 1280px);
+  }
+
+  .community-layout-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .community-side-card {
+    position: static;
+  }
+
+  .messages-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-hero-grid,
+  .dashboard-stat-grid,
+  .recent-items-grid,
+  .steps-grid,
+  .features-grid,
+  .admin-dashboard-stat-grid,
+  .admin-overview-grid,
+  .simple-card-grid,
+  .report-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-table-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .topbar-inner {
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 14px 0;
+  }
+
+  .dashboard-brand-row {
+    width: 100%;
+  }
+
+  .hamburger-button {
+    display: inline-flex;
+  }
+
+  .dashboard-nav {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .dashboard-nav.is-open {
+    display: flex;
+  }
+
+  .dashboard-nav-link {
+    justify-content: flex-start;
+    width: 100%;
+    border-radius: 14px;
+  }
+
+  .dashboard-navbar-shell {
+    justify-items: stretch;
+  }
+
+  .dashboard-toolbar,
+  .profile-menu-wrap {
+    justify-self: stretch;
+  }
+
+  .dashboard-toolbar {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .profile-trigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .notification-dropdown,
+  .profile-dropdown {
+    width: 100%;
+  }
+
+  .dashboard-hero-grid,
+  .dashboard-panels-grid,
+  .admin-dashboard-layout,
+  .admin-dashboard-lower-grid,
+  .profile-settings-grid,
+  .contact-panel,
+  .profile-form-grid,
+  .nrc-photo-grid,
+  .register-grid,
+  .upload-grid,
+  .dashboard-stat-grid,
+  .admin-dashboard-stat-grid,
+  .recent-items-grid,
+  .steps-grid,
+  .features-grid,
+  .admin-overview-grid,
+  .simple-card-grid,
+  .report-choice-grid,
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .community-post-header,
+  .community-post-user,
+  .community-modal-actions,
+  .community-post-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .community-feed {
+    width: 100%;
+  }
+
+  .community-post-card {
+    padding: 18px;
+    gap: 12px;
+  }
+
+  .community-post-image {
+    height: 240px;
+  }
+
+  .messages-contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .messages-conversation-item {
+    grid-template-columns: auto 1fr;
+  }
+
+  .messages-conversation-meta {
+    justify-items: start;
+  }
+
+  .message-bubble {
+    max-width: 92%;
+  }
+
+  .community-side-list {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 1fr);
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .community-side-item {
+    min-width: 180px;
+  }
+
+  .admin-table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard-sidebar {
+    position: static;
+  }
+
+  .admin-dashboard-topbar-inner,
+  .admin-dashboard-hero,
+  .admin-dashboard-topbar-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-pending-table-head {
+    display: none;
+  }
+
+  .admin-pending-table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-list-item,
+  .admin-item-top,
+  .admin-message-footer {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .hero-card {
+    padding: 34px 22px 30px;
+    border-radius: 16px;
+  }
+
+  .hero-card h1,
+  .cta-inner h2,
+  .auth-heading h1,
+  .dashboard-hero-copy h1,
+  .page-header-card h1 {
+    font-size: 34px;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    width: min(100% - 32px, 1280px);
+  }
+
+  .admin-dashboard-profile,
+  .admin-dashboard-topbar-actions,
+  .admin-pending-actions {
+    width: 100%;
+  }
+
+  .admin-pending-actions .quick-action-button,
+  .admin-pending-actions .secondary-action-button {
+    width: 100%;
+  }
+
+  .nav-links,
+  .topbar-actions,
+  .hero-actions,
+  .cta-actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .nav-links {
+    gap: 24px;
+  }
+
+  .auth-modal-root {
+    padding: 14px;
+  }
+
+  .auth-modal-shell {
+    max-height: calc(100vh - 28px);
+  }
+
+  .community-modal-root {
+    padding: 14px;
+  }
+
+  .community-modal-shell {
+    max-height: calc(100vh - 28px);
+  }
+
+  .community-modal-card {
+    padding: 18px 16px 24px;
+  }
+
+  .post-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .community-modal-top h2 {
+    font-size: 28px;
+  }
+
+  .floating-post-button {
+    width: 54px;
+    height: 54px;
+    right: 20px;
+    bottom: 20px;
+  }
+
+  .auth-modal-card {
+    padding: 18px 16px 24px;
+  }
+
+  .auth-modal-top {
+    align-items: flex-start;
+  }
+
+  .back-home-button {
+    font-size: 13px;
+    padding: 9px 12px;
+  }
+
+  .dashboard-panel,
+  .dashboard-stat-card,
+  .page-header-card,
+  .report-choice-card,
+  .simple-info-card,
+  .dashboard-hero-copy,
+  .quick-actions-card {
+    padding: 20px;
+  }
+
+  .activity-item {
+    grid-template-columns: auto 1fr;
+  }
+
+  .activity-time {
+    grid-column: 2;
+  }
+
+  .settings-list div {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .admin-actions {
+    width: 100%;
+  }
+
+  .admin-inline-button,
+  .admin-actions .secondary-action-button,
+  .admin-actions .quick-action-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .hero-card {
+    text-align: center;
+    padding: 30px 22px;
+  }
+
+  .hero-eyebrow,
+  .hero-trust-points {
+    justify-content: center;
+  }
+}

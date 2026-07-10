@@ -6,7 +6,10 @@ function GuestNav() {
       <div className="container topbar-inner">
         <a className="brand" href="#home">
           <BrandMark />
-          <span>FindIt</span>
+          <span className="brand-copy">
+            <strong>FindIt</strong>
+            <small>Lost &amp; Found</small>
+          </span>
         </a>
 
         <nav className="nav-links" aria-label="Primary">

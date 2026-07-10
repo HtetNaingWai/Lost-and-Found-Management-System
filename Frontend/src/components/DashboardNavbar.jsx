@@ -1,18 +1,18 @@
 import BrandMark from './BrandMark'
 import Icon from './Icon'
 import ProfileDropdown from './ProfileDropdown'
+import { NavLink } from 'react-router-dom'
 
 function DashboardNavbar({
   user,
-  activePage,
-  onNavigate,
   menuItems,
-  homePageKey = 'dashboard',
+  homePath = '/community',
   profileOpen,
   onToggleProfile,
   onLogout,
   mobileMenuOpen,
   onToggleMobileMenu,
+  onNavClose,
   profileRef,
   dropdownItems,
   roleLabel,
@@ -26,10 +26,13 @@ function DashboardNavbar({
     <header className="topbar topbar-authenticated">
       <div className="container dashboard-navbar-shell">
         <div className="dashboard-brand-row">
-          <a className="brand" href={`#${homePageKey}`} onClick={() => onNavigate(homePageKey)}>
+          <NavLink className="brand" to={homePath} onClick={onNavClose}>
             <BrandMark />
-            <span>FindIt</span>
-          </a>
+            <span className="brand-copy">
+              <strong>FindIt</strong>
+              <small>Lost &amp; Found</small>
+            </span>
+          </NavLink>
 
           <button
             type="button"
@@ -46,17 +49,17 @@ function DashboardNavbar({
           aria-label="Dashboard"
         >
           {menuItems.map((item) => (
-            <button
-              type="button"
+            <NavLink
               key={item.key}
-              className={`dashboard-nav-link${activePage === item.key ? ' is-active' : ''}`}
-              onClick={() => onNavigate(item.key)}
+              to={item.path}
+              className={({ isActive }) => `dashboard-nav-link${isActive ? ' is-active' : ''}`}
+              onClick={onNavClose}
             >
               <span className="dashboard-nav-icon">
                 <Icon name={item.icon} />
               </span>
               <span>{item.label}</span>
-            </button>
+            </NavLink>
           ))}
         </nav>
 
@@ -120,7 +123,7 @@ function DashboardNavbar({
 
             <ProfileDropdown
               open={profileOpen}
-              onNavigate={onNavigate}
+              onNavigate={onNavClose}
               onLogout={onLogout}
               items={dropdownItems}
             />

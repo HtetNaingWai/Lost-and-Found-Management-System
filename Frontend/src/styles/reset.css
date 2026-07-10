@@ -1,0 +1,54 @@
+*{
+  margin: 0;
+  padding: 0;
+}
+.landing-page,
+.dashboard-page {
+  color: var(--color-text);
+}
+
+.page-shell {
+  min-height: 100vh;
+}
+
+.page-blur-layer {
+  transition:
+    filter 0.25s ease,
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.page-shell.is-modal-open .page-blur-layer {
+  filter: blur(12px);
+  transform: scale(0.995);
+  pointer-events: none;
+  user-select: none;
+}
+
+.container {
+  width: min(100% - 96px, 1280px);
+  margin: 0 auto;
+}
+
+
+@keyframes overlay-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

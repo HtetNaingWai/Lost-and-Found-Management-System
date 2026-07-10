@@ -147,7 +147,10 @@ function ModalFrame({ title, subtitle, onClose, children }) {
 
       <div className="auth-brand">
         <BrandMark />
-        <span>FindIt</span>
+        <span className="brand-copy">
+          <strong>FindIt</strong>
+          <small>Lost &amp; Found</small>
+        </span>
       </div>
       <div className="auth-heading">
         <h1 id="auth-modal-title">{title}</h1>

@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/items/{item}', [AdminController::class, 'updateItem']);
         Route::get('/community-posts', [AdminController::class, 'communityPosts']);
         Route::get('/community-posts/pending', [AdminController::class, 'pendingCommunityPosts']);
+        Route::get('/claims', [AdminController::class, 'claims']);
         Route::patch('/community-posts/{communityPost}', [AdminController::class, 'updateCommunityPost']);
         Route::put('/community-posts/{communityPost}/approve', [AdminController::class, 'approveCommunityPost']);
         Route::put('/community-posts/{communityPost}/reject', [AdminController::class, 'rejectCommunityPost']);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import DashboardNavbar from '../components/DashboardNavbar'
 import Icon from '../components/Icon'
 import CommunityPage from './CommunityPage'
@@ -1441,7 +1442,6 @@ function DashboardContent({
 }
 
 function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
-  const [activePage, setActivePage] = useState(user.role === 'admin' ? 'dashboard' : 'community')
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -1466,7 +1466,45 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const [savingMessageId, setSavingMessageId] = useState(null)
   const profileRef = useRef(null)
   const notificationRef = useRef(null)
+  const location = useLocation()
+  const navigate = useNavigate()
   const isAdmin = user.role === 'admin'
+
+  const activePage = useMemo(() => {
+    if (isAdmin) {
+      switch (location.pathname) {
+        case '/admin/users':
+          return 'users'
+        case '/admin/lost-items':
+          return 'admin-lost-items'
+        case '/admin/found-items':
+          return 'admin-found-items'
+        case '/admin/contact-messages':
+          return 'contact-messages'
+        case '/admin/profile':
+          return 'profile'
+        case '/admin':
+        default:
+          return 'dashboard'
+      }
+    }
+
+    switch (location.pathname) {
+      case '/lost-items':
+        return 'lost-items'
+      case '/found-items':
+        return 'found-items'
+      case '/messages':
+        return 'messages'
+      case '/contact':
+        return 'contact'
+      case '/profile':
+        return 'profile'
+      case '/community':
+      default:
+        return 'community'
+    }
+  }, [isAdmin, location.pathname])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1563,15 +1601,43 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
   }, [isAdmin, token])
 
-  const handleNavigate = (page) => {
-    setActivePage(page)
+  const closeMenus = () => {
     setProfileOpen(false)
     setNotificationOpen(false)
     setMobileMenuOpen(false)
   }
 
+  const pageRouteMap = isAdmin
+    ? {
+        dashboard: '/admin',
+        users: '/admin/users',
+        'admin-lost-items': '/admin/lost-items',
+        'admin-found-items': '/admin/found-items',
+        'contact-messages': '/admin/contact-messages',
+        profile: '/admin/profile',
+      }
+    : {
+        community: '/community',
+        'lost-items': '/lost-items',
+        'found-items': '/found-items',
+        messages: '/messages',
+        contact: '/contact',
+        profile: '/profile',
+      }
+
+  const handleNavigate = (page) => {
+    const targetPath = pageRouteMap[page]
+    closeMenus()
+
+    if (targetPath && targetPath !== location.pathname) {
+      navigate(targetPath)
+    }
+  }
+
   const handleOpenConversation = async (participant) => {
-    setActivePage('messages')
+    if (location.pathname !== '/messages') {
+      navigate('/messages')
+    }
     setActiveConversation({ participant })
     setLoadingConversation(true)
     setMessageError('')
@@ -1806,19 +1872,29 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     void handleOpenConversation(targetUser)
   }
 
+  useEffect(() => {
+    if (
+      !isAdmin
+      && activePage === 'messages'
+      && !activeConversation
+      && contactUsers.length > 0
+    ) {
+      void handleOpenConversation(contactUsers[0])
+    }
+  }, [activePage, activeConversation, contactUsers, isAdmin])
+
   return (
     <div className="dashboard-page">
       <DashboardNavbar
         user={user}
-        activePage={activePage}
-        onNavigate={handleNavigate}
         menuItems={menuItems}
-        homePageKey={isAdmin ? 'dashboard' : 'community'}
+        homePath={isAdmin ? '/admin' : '/community'}
         profileOpen={profileOpen}
         onToggleProfile={() => setProfileOpen((current) => !current)}
         onLogout={onLogout}
         mobileMenuOpen={mobileMenuOpen}
         onToggleMobileMenu={() => setMobileMenuOpen((current) => !current)}
+        onNavClose={closeMenus}
         profileRef={profileRef}
         notificationRef={notificationRef}
         dropdownItems={dropdownItems}

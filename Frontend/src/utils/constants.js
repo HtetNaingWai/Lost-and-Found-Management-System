@@ -43,34 +43,34 @@ export const initialRegisterValues = {
 }
 
 export const dashboardMenuItems = [
-  { key: 'community', label: 'Community', icon: 'community' },
-  { key: 'lost-items', label: 'Lost Items', icon: 'search' },
-  { key: 'found-items', label: 'Found Items', icon: 'inventory' },
-  { key: 'messages', label: 'Messages', icon: 'chat' },
-  { key: 'contact', label: 'Contact Us', icon: 'mail' },
+  { key: 'community', label: 'Community', icon: 'community', path: '/community' },
+  { key: 'lost-items', label: 'Lost Items', icon: 'search', path: '/lost-items' },
+  { key: 'found-items', label: 'Found Items', icon: 'inventory', path: '/found-items' },
+  { key: 'messages', label: 'Messages', icon: 'chat', path: '/messages' },
+  { key: 'contact', label: 'Contact Us', icon: 'mail', path: '/contact' },
 ]
 
 export const adminDashboardMenuItems = [
-  { key: 'dashboard', label: 'Admin Dashboard', icon: 'grid' },
-  { key: 'users', label: 'Users', icon: 'group' },
-  { key: 'admin-lost-items', label: 'Lost Items', icon: 'search' },
-  { key: 'admin-found-items', label: 'Found Items', icon: 'inventory' },
-  { key: 'contact-messages', label: 'Contact Messages', icon: 'mail' },
+  { key: 'dashboard', label: 'Admin Dashboard', icon: 'grid', path: '/admin' },
+  { key: 'users', label: 'Users', icon: 'group', path: '/admin/users' },
+  { key: 'admin-lost-items', label: 'Lost Items', icon: 'search', path: '/admin/lost-items' },
+  { key: 'admin-found-items', label: 'Found Items', icon: 'inventory', path: '/admin/found-items' },
+  { key: 'contact-messages', label: 'Contact Messages', icon: 'mail', path: '/admin/contact-messages' },
 ]
 
 export const profileDropdownItems = [
-  { key: 'profile', label: 'My Profile', icon: 'userCircle' },
-  { key: 'my-items', label: 'My Items', icon: 'inventory' },
-  { key: 'my-claims', label: 'My Claims', icon: 'clipboard' },
+  { key: 'profile', label: 'My Profile', icon: 'userCircle', path: '/profile' },
+  { key: 'my-items', label: 'My Items', icon: 'inventory', path: '/lost-items' },
+  { key: 'my-claims', label: 'My Claims', icon: 'clipboard', path: '/messages' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]
 
 export const adminProfileDropdownItems = [
-  { key: 'profile', label: 'Admin Profile', icon: 'userCircle' },
-  { key: 'users', label: 'Manage Users', icon: 'group' },
-  { key: 'admin-lost-items', label: 'Manage Lost Items', icon: 'search' },
-  { key: 'admin-found-items', label: 'Manage Found Items', icon: 'inventory' },
-  { key: 'contact-messages', label: 'Contact Messages', icon: 'mail' },
+  { key: 'profile', label: 'Admin Profile', icon: 'userCircle', path: '/admin/profile' },
+  { key: 'users', label: 'Manage Users', icon: 'group', path: '/admin/users' },
+  { key: 'admin-lost-items', label: 'Manage Lost Items', icon: 'search', path: '/admin/lost-items' },
+  { key: 'admin-found-items', label: 'Manage Found Items', icon: 'inventory', path: '/admin/found-items' },
+  { key: 'contact-messages', label: 'Contact Messages', icon: 'mail', path: '/admin/contact-messages' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]
 

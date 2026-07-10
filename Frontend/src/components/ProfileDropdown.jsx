@@ -1,16 +1,9 @@
 import Icon from './Icon'
-
-const navigationMap = {
-  profile: 'profile',
-  'my-items': 'lost-items',
-  'my-claims': 'messages',
-  users: 'users',
-  'admin-lost-items': 'admin-lost-items',
-  'admin-found-items': 'admin-found-items',
-  'contact-messages': 'contact-messages',
-}
+import { useNavigate } from 'react-router-dom'
 
 function ProfileDropdown({ open, onNavigate, onLogout, items }) {
+  const navigate = useNavigate()
+
   if (!open) return null
 
   return (
@@ -26,8 +19,9 @@ function ProfileDropdown({ open, onNavigate, onLogout, items }) {
               return
             }
 
-            if (navigationMap[item.key]) {
-              onNavigate(navigationMap[item.key])
+            if (item.path) {
+              navigate(item.path)
+              onNavigate?.()
             }
           }}
         >

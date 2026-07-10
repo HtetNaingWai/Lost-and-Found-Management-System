@@ -17,14 +17,8 @@ class AdminSeeder extends Seeder
             ['email' => 'admin@findit.com'],
             [
                 'name' => 'Admin',
-                'phone' => null,
-                'nrc_no' => null,
-                'nrc_front_photo' => null,
-                'nrc_back_photo' => null,
-                'profile_image' => null,
                 'password' => Hash::make('password123'),
                 'role' => 'admin',
-                'status' => 'active',
             ],
         );
     }
