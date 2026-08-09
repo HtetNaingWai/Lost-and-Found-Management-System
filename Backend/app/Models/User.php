@@ -84,4 +84,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ActivityLog::class);
     }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(UserNotification::class, 'recipient_user_id');
+    }
 }

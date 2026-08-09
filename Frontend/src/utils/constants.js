@@ -52,24 +52,27 @@ export const dashboardMenuItems = [
 
 export const adminDashboardMenuItems = [
   { key: 'dashboard', label: 'Admin Dashboard', icon: 'grid', path: '/admin' },
+  { key: 'pending-posts', label: 'Pending Posts', icon: 'clock', path: '/admin/pending-posts' },
   { key: 'users', label: 'Users', icon: 'group', path: '/admin/users' },
   { key: 'admin-lost-items', label: 'Lost Items', icon: 'search', path: '/admin/lost-items' },
   { key: 'admin-found-items', label: 'Found Items', icon: 'inventory', path: '/admin/found-items' },
+  { key: 'claims', label: 'Claims', icon: 'clipboard', path: '/admin/claims' },
   { key: 'contact-messages', label: 'Contact Messages', icon: 'mail', path: '/admin/contact-messages' },
 ]
 
 export const profileDropdownItems = [
   { key: 'profile', label: 'My Profile', icon: 'userCircle', path: '/profile' },
   { key: 'my-items', label: 'My Items', icon: 'inventory', path: '/lost-items' },
-  { key: 'my-claims', label: 'My Claims', icon: 'clipboard', path: '/messages' },
+  { key: 'my-claims', label: 'My Claims', icon: 'clipboard', path: '/community?section=my-claims' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]
 
 export const adminProfileDropdownItems = [
-  { key: 'profile', label: 'Admin Profile', icon: 'userCircle', path: '/admin/profile' },
+  { key: 'profile', label: 'Admin Profile', icon: 'userCircle', path: '/admin/settings' },
   { key: 'users', label: 'Manage Users', icon: 'group', path: '/admin/users' },
   { key: 'admin-lost-items', label: 'Manage Lost Items', icon: 'search', path: '/admin/lost-items' },
   { key: 'admin-found-items', label: 'Manage Found Items', icon: 'inventory', path: '/admin/found-items' },
+  { key: 'claims', label: 'Claims', icon: 'clipboard', path: '/admin/claims' },
   { key: 'contact-messages', label: 'Contact Messages', icon: 'mail', path: '/admin/contact-messages' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]

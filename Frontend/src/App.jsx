@@ -199,10 +199,26 @@ function App() {
               )}
             />
             <Route
+              path="/admin/pending-posts"
+              element={(
+                <AdminRoute authUser={authUser}>
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
+                </AdminRoute>
+              )}
+            />
+            <Route
               path="/admin/users"
               element={(
                 <AdminRoute authUser={authUser}>
-                  {renderDashboard()}
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
                 </AdminRoute>
               )}
             />
@@ -210,7 +226,11 @@ function App() {
               path="/admin/lost-items"
               element={(
                 <AdminRoute authUser={authUser}>
-                  {renderDashboard()}
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
                 </AdminRoute>
               )}
             />
@@ -218,7 +238,23 @@ function App() {
               path="/admin/found-items"
               element={(
                 <AdminRoute authUser={authUser}>
-                  {renderDashboard()}
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
+                </AdminRoute>
+              )}
+            />
+            <Route
+              path="/admin/claims"
+              element={(
+                <AdminRoute authUser={authUser}>
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
                 </AdminRoute>
               )}
             />
@@ -226,7 +262,35 @@ function App() {
               path="/admin/contact-messages"
               element={(
                 <AdminRoute authUser={authUser}>
-                  {renderDashboard()}
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
+                </AdminRoute>
+              )}
+            />
+            <Route
+              path="/admin/notifications"
+              element={(
+                <AdminRoute authUser={authUser}>
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
+                </AdminRoute>
+              )}
+            />
+            <Route
+              path="/admin/settings"
+              element={(
+                <AdminRoute authUser={authUser}>
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
                 </AdminRoute>
               )}
             />
@@ -234,7 +298,11 @@ function App() {
               path="/admin/profile"
               element={(
                 <AdminRoute authUser={authUser}>
-                  {renderDashboard()}
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
                 </AdminRoute>
               )}
             />

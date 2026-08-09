@@ -14,6 +14,7 @@ class Claim extends Model
      */
     protected $fillable = [
         'item_id',
+        'community_post_id',
         'user_id',
         'proof_description',
         'contact_phone',
@@ -21,6 +22,7 @@ class Claim extends Model
         'admin_note',
         'reviewed_by',
         'reviewed_at',
+        'returned_at',
     ];
 
     /**
@@ -32,12 +34,18 @@ class Claim extends Model
     {
         return [
             'reviewed_at' => 'datetime',
+            'returned_at' => 'datetime',
         ];
     }
 
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
+    }
+
+    public function communityPost(): BelongsTo
+    {
+        return $this->belongsTo(CommunityPost::class);
     }
 
     public function user(): BelongsTo

@@ -64,6 +64,16 @@
   white-space: nowrap;
 }
 
+.messages-presence-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #91a19a;
+}
+
+.messages-presence-text.is-online {
+  color: #146728;
+}
+
 .messages-conversation-meta {
   display: grid;
   justify-items: end;
@@ -120,6 +130,12 @@
 .message-bubble span,
 .messages-composer textarea {
   margin: 0;
+}
+
+.messages-typing-indicator {
+  font-size: 13px;
+  font-weight: 700;
+  color: #146728;
 }
 
 .messages-thread-list {
@@ -302,4 +318,3 @@
 .message-bubble {
   background: rgba(255, 255, 255, 0.9);
 }
-

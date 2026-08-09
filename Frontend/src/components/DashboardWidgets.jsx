@@ -1,5 +1,4 @@
 import Icon from './Icon'
-import { activityItems, messagesPreviewItems, recentItems } from '../utils/constants'
 
 export function StatCard({ card }) {
   return (
@@ -16,7 +15,7 @@ export function StatCard({ card }) {
   )
 }
 
-export function RecentActivity() {
+export function RecentActivity({ items = [] }) {
   return (
     <section className="dashboard-panel">
       <div className="section-panel-heading">
@@ -24,7 +23,7 @@ export function RecentActivity() {
         <p>Your latest actions across FindIt.</p>
       </div>
       <div className="activity-list">
-        {activityItems.map((item) => (
+        {items.map((item) => (
           <article className="activity-item" key={item.title}>
             <span className="activity-icon">
               <Icon name={item.icon} />
@@ -41,7 +40,7 @@ export function RecentActivity() {
   )
 }
 
-export function MyRecentItems() {
+export function MyRecentItems({ items = [] }) {
   return (
     <section className="dashboard-panel">
       <div className="section-panel-heading">
@@ -49,13 +48,13 @@ export function MyRecentItems() {
         <p>Latest lost and found reports you submitted.</p>
       </div>
       <div className="recent-items-grid">
-        {recentItems.map((item) => (
-          <article className="recent-item-card" key={`${item.title}-${item.date}`}>
-            <img src={item.image} alt={item.title} />
+        {items.map((item) => (
+          <article className="recent-item-card" key={`${item.title}-${item.created_at ?? item.date}`}>
+            <img src={item.image_url || item.image} alt={item.title} />
             <div className="recent-item-body">
               <div className="recent-item-badges">
-                <span className={`badge badge-type ${item.type === 'Lost' ? 'badge-lost' : 'badge-found'}`}>
-                  {item.type}
+                <span className={`badge badge-type ${(item.post_type ?? item.type) === 'lost' || item.type === 'Lost' ? 'badge-lost' : 'badge-found'}`}>
+                  {(item.post_type ?? item.type) === 'lost' ? 'Lost' : (item.post_type ?? item.type) === 'found' ? 'Found' : item.type}
                 </span>
                 <span className={`badge badge-status badge-${item.status.toLowerCase()}`}>
                   {item.status}
@@ -66,7 +65,7 @@ export function MyRecentItems() {
                 <Icon name="pin" />
                 <span>{item.location}</span>
               </p>
-              <p className="recent-item-date">{item.date}</p>
+              <p className="recent-item-date">{item.item_date || item.date}</p>
             </div>
           </article>
         ))}
@@ -75,7 +74,7 @@ export function MyRecentItems() {
   )
 }
 
-export function MessagesPreview() {
+export function MessagesPreview({ items = [] }) {
   return (
     <section className="dashboard-panel">
       <div className="section-panel-heading">
@@ -83,7 +82,7 @@ export function MessagesPreview() {
         <p>Latest conversations from your inbox.</p>
       </div>
       <div className="message-preview-list">
-        {messagesPreviewItems.map((message) => (
+        {items.map((message) => (
           <article className="message-preview-item" key={`${message.sender}-${message.time}`}>
             <span className={`message-dot${message.unread ? ' is-unread' : ''}`} />
             <div className="message-preview-copy">

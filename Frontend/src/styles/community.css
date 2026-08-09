@@ -1,6 +1,6 @@
 .report-choice-card {
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
 .community-feed,
@@ -302,6 +302,17 @@
   gap: 12px;
 }
 
+.community-claim-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.community-claim-copy p {
+  margin: 0;
+  color: #5c6761;
+  font-size: 13px;
+}
+
 .notification-list-panel {
   padding-top: 0;
 }
@@ -477,6 +488,29 @@
   flex-wrap: wrap;
 }
 
+.post-claim-form {
+  padding: 18px;
+  border-radius: 18px;
+  background: #f6faf7;
+  border: 1px solid rgba(20, 103, 40, 0.08);
+}
+
+.claim-status-note {
+  color: #0d5f23;
+}
+
+.post-detail-claims {
+  display: grid;
+  gap: 14px;
+}
+
+.community-claim-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
 
 .community-layout-grid {
   align-items: start;
@@ -584,4 +618,3 @@
 .message-bubble {
   background: rgba(255, 255, 255, 0.9);
 }
-

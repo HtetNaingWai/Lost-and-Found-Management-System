@@ -2,8 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageRead;
+use App\Events\MessageSent;
+use App\Events\NotificationRead;
+use App\Events\UserStoppedTyping;
+use App\Events\UserTyping;
 use App\Models\Message;
 use App\Models\User;
+use App\Services\NotificationService;
+use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -63,11 +70,55 @@ class MessageController extends Controller
 
         abort_if($authUser->id === $user->id, 404);
 
-        Message::query()
+        $readMessages = Message::query()
             ->where('sender_id', $user->id)
             ->where('receiver_id', $authUser->id)
             ->where('is_read', false)
-            ->update(['is_read' => true]);
+            ->get();
+
+        $readMessageIds = $readMessages->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+
+        if ($readMessageIds !== []) {
+            Message::query()
+                ->whereIn('id', $readMessageIds)
+                ->update([
+                    'is_read' => true,
+                    'updated_at' => now(),
+                ]);
+
+            event(new MessageRead(
+                (int) $authUser->id,
+                (int) $user->id,
+                $readMessageIds,
+                now()->toISOString(),
+            ));
+        }
+
+        $notificationIds = \App\Models\UserNotification::query()
+            ->where('recipient_user_id', $authUser->id)
+            ->where('type', 'message_received')
+            ->where('data->sender_id', $user->id)
+            ->whereNull('read_at')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if ($notificationIds !== []) {
+            \App\Models\UserNotification::query()
+                ->whereIn('id', $notificationIds)
+                ->update([
+                'read_at' => now(),
+                'updated_at' => now(),
+                ]);
+
+            event(new NotificationRead(
+                (int) $authUser->id,
+                $notificationIds,
+                false,
+                now()->toISOString(),
+            ));
+        }
 
         $messages = Message::query()
             ->with([
@@ -110,13 +161,65 @@ class MessageController extends Controller
             'is_read' => false,
         ]);
 
+        NotificationService::create(
+            (int) $validated['receiver_id'],
+            'message_received',
+            'New message received',
+            trim($request->user()->name.' sent you a new message.'),
+            [
+                'message_id' => $message->id,
+                'sender_id' => $request->user()->id,
+            ],
+        );
+
+        $messagePayload = $this->transformMessage($message->fresh([
+            'sender:id,name,email,profile_image',
+            'receiver:id,name,email,profile_image',
+        ]));
+
+        event(MessageSent::fromArray($messagePayload));
+
+        WebhookDispatcher::dispatch('message_sent', [
+            'message' => $messagePayload,
+        ]);
+
         return response()->json([
             'message' => 'Message sent successfully.',
-            'data' => $this->transformMessage($message->fresh([
-                'sender:id,name,email,profile_image',
-                'receiver:id,name,email,profile_image',
-            ])),
+            'data' => $messagePayload,
         ], 201);
+    }
+
+    public function typing(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'receiver_id' => ['required', 'exists:users,id', 'not_in:'.$request->user()->id],
+        ]);
+
+        event(new UserTyping(
+            (int) $request->user()->id,
+            (int) $validated['receiver_id'],
+            $this->transformUser($request->user()),
+        ));
+
+        return response()->json([
+            'message' => 'Typing state sent.',
+        ]);
+    }
+
+    public function stopTyping(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'receiver_id' => ['required', 'exists:users,id', 'not_in:'.$request->user()->id],
+        ]);
+
+        event(new UserStoppedTyping(
+            (int) $request->user()->id,
+            (int) $validated['receiver_id'],
+        ));
+
+        return response()->json([
+            'message' => 'Typing stopped state sent.',
+        ]);
     }
 
     protected function transformMessage(Message $message): array

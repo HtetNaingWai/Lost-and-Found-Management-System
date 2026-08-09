@@ -3,6 +3,22 @@
     width: min(100% - 48px, 1280px);
   }
 
+  .dashboard-navbar-shell {
+    gap: 18px;
+  }
+
+  .dashboard-nav {
+    gap: 2px;
+  }
+
+  .dashboard-nav-link {
+    padding: 0 12px;
+  }
+
+  .profile-trigger-copy small {
+    display: none;
+  }
+
   .community-layout-grid {
     grid-template-columns: 1fr;
   }
@@ -36,6 +52,77 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .container {
+    width: min(100% - 40px, 1280px);
+  }
+
+  .dashboard-main,
+  .admin-dashboard-main {
+    padding-top: 24px;
+  }
+
+  .dashboard-hero-copy h1,
+  .page-header-card h1 {
+    font-size: 36px;
+  }
+
+  .dashboard-nav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .dashboard-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dashboard-toolbar {
+    min-width: 0;
+  }
+
+  .profile-trigger {
+    max-width: min(100%, 240px);
+  }
+
+  .messages-layout {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  }
+
+  .community-layout-grid {
+    gap: 22px;
+  }
+
+  .community-side-card {
+    padding: 16px;
+  }
+
+  .community-panel,
+  .community-post-card,
+  .community-placeholder-card,
+  .dashboard-panel,
+  .page-header-card,
+  .report-choice-card,
+  .simple-info-card,
+  .dashboard-hero-copy,
+  .quick-actions-card {
+    padding: 22px;
+  }
+
+  .community-post-image {
+    height: 280px;
+  }
+
+  .recent-item-image-wrap {
+    height: 220px;
+  }
+
+  .post-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 860px) {
   .topbar-inner {
     flex-wrap: wrap;
@@ -43,8 +130,17 @@
     padding: 14px 0;
   }
 
+  .dashboard-navbar-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 76px;
+    gap: 14px;
+    padding: 14px 0;
+  }
+
   .dashboard-brand-row {
     width: 100%;
+    align-items: center;
   }
 
   .hamburger-button {
@@ -57,6 +153,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
+    overflow: visible;
+    padding-bottom: 0;
   }
 
   .dashboard-nav.is-open {
@@ -81,6 +179,7 @@
   .dashboard-toolbar {
     width: 100%;
     justify-content: space-between;
+    gap: 10px;
   }
 
   .profile-trigger {
@@ -91,6 +190,7 @@
   .notification-dropdown,
   .profile-dropdown {
     width: 100%;
+    max-width: 100%;
   }
 
   .dashboard-hero-grid,
@@ -126,6 +226,10 @@
     width: 100%;
   }
 
+  .community-layout-grid {
+    gap: 18px;
+  }
+
   .community-post-card {
     padding: 18px;
     gap: 12px;
@@ -156,10 +260,12 @@
     grid-auto-columns: minmax(180px, 1fr);
     overflow-x: auto;
     padding-bottom: 4px;
+    scroll-snap-type: x proximity;
   }
 
   .community-side-item {
     min-width: 180px;
+    scroll-snap-align: start;
   }
 
   .admin-table-row {
@@ -215,6 +321,15 @@
     width: min(100% - 32px, 1280px);
   }
 
+  .topbar {
+    position: sticky;
+  }
+
+  .topbar-inner,
+  .dashboard-navbar-shell {
+    gap: 12px;
+  }
+
   .admin-dashboard-profile,
   .admin-dashboard-topbar-actions,
   .admin-pending-actions {
@@ -259,6 +374,27 @@
     padding: 18px 16px 24px;
   }
 
+  .community-post-header {
+    gap: 10px;
+  }
+
+  .community-post-badges {
+    gap: 8px;
+  }
+
+  .community-post-title {
+    font-size: 20px;
+  }
+
+  .community-post-content {
+    font-size: 14px;
+  }
+
+  .community-post-image {
+    height: 240px;
+    border-radius: 14px;
+  }
+
   .post-detail-grid {
     grid-template-columns: 1fr;
   }
@@ -297,6 +433,14 @@
     padding: 20px;
   }
 
+  .dashboard-stat-card {
+    gap: 14px;
+  }
+
+  .dashboard-stat-content strong {
+    font-size: 28px;
+  }
+
   .activity-item {
     grid-template-columns: auto 1fr;
   }
@@ -319,6 +463,21 @@
   .admin-actions .quick-action-button {
     width: 100%;
   }
+
+  .messages-sidebar,
+  .messages-thread-panel {
+    gap: 14px;
+  }
+
+  .messages-thread-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .messages-thread-list {
+    max-height: 52vh;
+  }
 }
 
 @media (max-width: 860px) {
@@ -330,5 +489,97 @@
   .hero-eyebrow,
   .hero-trust-points {
     justify-content: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .container {
+    width: min(100% - 24px, 1280px);
+  }
+
+  .dashboard-main,
+  .admin-dashboard-main {
+    padding: 18px 0 40px;
+  }
+
+  .page-header-card h1,
+  .dashboard-hero-copy h1,
+  .auth-heading h1,
+  .hero-card h1,
+  .cta-inner h2 {
+    font-size: 30px;
+  }
+
+  .dashboard-brand-row {
+    gap: 12px;
+  }
+
+  .brand {
+    font-size: 20px;
+  }
+
+  .dashboard-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .notification-wrap,
+  .profile-menu-wrap {
+    width: 100%;
+  }
+
+  .notification-trigger {
+    width: 44px;
+    height: 44px;
+  }
+
+  .notification-dropdown,
+  .profile-dropdown {
+    position: static;
+    margin-top: 10px;
+  }
+
+  .community-side-card,
+  .community-panel,
+  .community-placeholder-card,
+  .community-post-card,
+  .dashboard-panel,
+  .page-header-card,
+  .report-choice-card,
+  .simple-info-card,
+  .dashboard-hero-copy,
+  .quick-actions-card,
+  .messages-sidebar,
+  .messages-thread-panel {
+    border-radius: 20px;
+  }
+
+  .community-post-card,
+  .community-panel,
+  .community-placeholder-card,
+  .dashboard-panel,
+  .page-header-card,
+  .report-choice-card,
+  .simple-info-card,
+  .dashboard-hero-copy,
+  .quick-actions-card {
+    padding: 18px;
+  }
+
+  .community-post-image {
+    height: 220px;
+  }
+
+  .message-bubble {
+    max-width: 100%;
+  }
+
+  .recent-item-image-wrap {
+    height: 200px;
+  }
+
+  .floating-post-button {
+    right: 16px;
+    bottom: 16px;
   }
 }

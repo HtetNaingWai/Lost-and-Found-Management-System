@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\CommunityPost;
+use App\Models\UserNotification;
+use App\Services\NotificationService;
+use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,7 +25,7 @@ class CommunityPostController extends Controller
         if ($user->role !== 'admin') {
             $query->where(function ($builder) use ($user) {
                 $builder
-                    ->whereIn('status', ['pending', 'approved'])
+                    ->whereIn('status', ['pending', 'approved', 'claimed', 'returned'])
                     ->orWhere(function ($rejectedQuery) use ($user) {
                         $rejectedQuery
                             ->where('status', 'rejected')
@@ -72,15 +75,42 @@ class CommunityPostController extends Controller
             'status' => 'pending',
         ]);
 
+        $notification = NotificationService::create(
+            $request->user()->id,
+            'post_submitted',
+            $isItemPost ? ucfirst($validated['post_type']).' post submitted' : 'Community post submitted',
+            $isItemPost
+                ? 'Your post is pending admin review.'
+                : 'Your community post is now visible in the community feed.',
+            [
+                'post_id' => $post->id,
+                'post_type' => $post->post_type,
+            ],
+        );
+
+        $postPayload = $this->transformPost($post->fresh([
+            'user:id,name,email,profile_image',
+            'category:id,name',
+            'approvedBy:id,name',
+        ]));
+
+        WebhookDispatcher::dispatch('post_created', [
+            'post' => $postPayload,
+        ]);
+
         return response()->json([
             'message' => $isItemPost
                 ? ucfirst($validated['post_type']).' post submitted successfully and is awaiting admin review.'
                 : 'Community post created successfully.',
-            'post' => $this->transformPost($post->fresh([
-                'user:id,name,email,profile_image',
-                'category:id,name',
-                'approvedBy:id,name',
-            ])),
+            'post' => $postPayload,
+            'notification' => $this->transformNotification($notification),
+            'activity' => [
+                'id' => 'post-'.$post->id,
+                'title' => $isItemPost ? ucfirst($post->post_type).' post submitted' : 'Community post submitted',
+                'detail' => $post->title ?: 'Community post',
+                'time' => optional($post->created_at)?->toISOString(),
+                'icon' => $isItemPost ? 'document' : 'community',
+            ],
         ], 201);
     }
 
@@ -92,6 +122,8 @@ class CommunityPostController extends Controller
                     'user:id,name,email,profile_image',
                     'category:id,name',
                     'approvedBy:id,name',
+                    'claims.user:id,name,email,profile_image',
+                    'claims.reviewedBy:id,name',
                 ])
                 ->where('user_id', $request->user()->id)
                 ->latest()
@@ -117,6 +149,8 @@ class CommunityPostController extends Controller
                 'user:id,name,email,profile_image',
                 'category:id,name',
                 'approvedBy:id,name',
+                'claims.user:id,name,email,profile_image',
+                'claims.reviewedBy:id,name',
             ])),
         ]);
     }
@@ -171,6 +205,7 @@ class CommunityPostController extends Controller
             'created_at' => optional($post->created_at)?->toISOString(),
             'approved_at' => optional($post->approved_at)?->toISOString(),
             'rejected_at' => optional($post->rejected_at)?->toISOString(),
+            'returned_at' => optional($post->returned_at)?->toISOString(),
             'image_url' => $post->image ? asset('storage/'.$post->image) : null,
             'user' => $post->user ? [
                 'id' => $post->user->id,
@@ -188,6 +223,39 @@ class CommunityPostController extends Controller
                 'id' => $post->approvedBy->id,
                 'name' => $post->approvedBy->name,
             ] : null,
+            'claims' => $post->relationLoaded('claims')
+                ? $post->claims
+                    ->sortByDesc('created_at')
+                    ->values()
+                    ->map(fn ($claim) => [
+                        'id' => $claim->id,
+                        'status' => $claim->status,
+                        'proof_description' => $claim->proof_description,
+                        'contact_phone' => $claim->contact_phone,
+                        'admin_note' => $claim->admin_note,
+                        'reviewed_at' => optional($claim->reviewed_at)?->toISOString(),
+                        'returned_at' => optional($claim->returned_at)?->toISOString(),
+                        'created_at' => optional($claim->created_at)?->toISOString(),
+                        'user' => $claim->user ? [
+                            'id' => $claim->user->id,
+                            'name' => $claim->user->name,
+                            'email' => $claim->user->email,
+                            'profile_image_url' => $claim->user->profile_image
+                                ? asset('storage/'.$claim->user->profile_image)
+                                : null,
+                        ] : null,
+                        'reviewed_by' => $claim->reviewedBy ? [
+                            'id' => $claim->reviewedBy->id,
+                            'name' => $claim->reviewedBy->name,
+                        ] : null,
+                    ])
+                    ->all()
+                : [],
         ];
+    }
+
+    protected function transformNotification(UserNotification $notification): array
+    {
+        return NotificationService::transform($notification);
     }
 }

@@ -7,6 +7,8 @@ use App\Models\CommunityPost;
 use App\Models\ContactMessage;
 use App\Models\Item;
 use App\Models\User;
+use App\Services\NotificationService;
+use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Throwable;
@@ -44,7 +46,13 @@ class AdminController extends Controller
             ->all(), []);
 
         $recentClaims = $this->safe(fn () => Claim::query()
-            ->with(['user:id,name,email,profile_image', 'item:id,title,type,status', 'reviewedBy:id,name'])
+            ->with([
+                'user:id,name,email,profile_image',
+                'item:id,title,type,status',
+                'communityPost.user:id,name,email,profile_image',
+                'communityPost.category:id,name',
+                'reviewedBy:id,name',
+            ])
             ->latest()
             ->limit(5)
             ->get()
@@ -154,7 +162,13 @@ class AdminController extends Controller
     public function claims(): JsonResponse
     {
         $claims = $this->safe(fn () => Claim::query()
-            ->with(['user:id,name,email,profile_image', 'item:id,title,type,status,location,item_date,image', 'reviewedBy:id,name'])
+            ->with([
+                'user:id,name,email,profile_image',
+                'item:id,title,type,status,location,item_date,image',
+                'communityPost.user:id,name,email,profile_image',
+                'communityPost.category:id,name',
+                'reviewedBy:id,name',
+            ])
             ->latest()
             ->get()
             ->map(fn (Claim $claim) => $this->transformClaim($claim))
@@ -166,18 +180,216 @@ class AdminController extends Controller
         ]);
     }
 
-    public function updateCommunityPost(Request $request, CommunityPost $communityPost): JsonResponse
+    public function approveClaim(Request $request, Claim $claim): JsonResponse
     {
         $validated = $request->validate([
-            'status' => ['required', 'in:pending,approved,rejected'],
             'admin_note' => ['nullable', 'string'],
         ]);
 
-        if ($validated['status'] === 'approved') {
+        $claim->status = 'approved';
+        $claim->admin_note = $validated['admin_note'] ?? null;
+        $claim->reviewed_by = $request->user()->id;
+        $claim->reviewed_at = now();
+        $claim->returned_at = null;
+        $claim->save();
+
+        if ($claim->communityPost) {
+            $claim->communityPost->status = 'claimed';
+            $claim->communityPost->returned_at = null;
+            $claim->communityPost->save();
+
+            Claim::query()
+                ->where('community_post_id', $claim->community_post_id)
+                ->where('id', '!=', $claim->id)
+                ->where('status', 'pending')
+                ->update([
+                    'status' => 'rejected',
+                    'admin_note' => 'Another claim was approved for this item.',
+                    'reviewed_by' => $request->user()->id,
+                    'reviewed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
+
+        if ($claim->item) {
+            $claim->item->status = 'claimed';
+            $claim->item->returned_at = null;
+            $claim->item->save();
+        }
+
+        if ($claim->user_id) {
+            NotificationService::create(
+                $claim->user_id,
+                'claim_approved',
+                'Your claim was approved',
+                ($claim->communityPost?->title ?: 'Found item claim').' has been approved by admin.',
+                [
+                    'claim_id' => $claim->id,
+                    'community_post_id' => $claim->community_post_id,
+                ],
+            );
+        }
+
+        if ($claim->communityPost && $claim->communityPost->user_id !== $claim->user_id) {
+            NotificationService::create(
+                $claim->communityPost->user_id,
+                'item_claimed',
+                'A claim was approved for your item',
+                ($claim->user?->name ?: 'A member').' has an approved claim for '.($claim->communityPost->title ?: 'your found item').'.',
+                [
+                    'claim_id' => $claim->id,
+                    'community_post_id' => $claim->community_post_id,
+                ],
+            );
+        }
+
+        $claimPayload = $this->transformClaim($claim->fresh([
+            'user:id,name,email,profile_image',
+            'item:id,title,type,status,location,item_date,image',
+            'communityPost.user:id,name,email,profile_image',
+            'communityPost.category:id,name',
+            'reviewedBy:id,name',
+        ]));
+
+        WebhookDispatcher::dispatch('claim_approved', [
+            'claim' => $claimPayload,
+        ]);
+
+        return response()->json([
+            'message' => 'Claim approved successfully.',
+            'claim' => $claimPayload,
+        ]);
+    }
+
+    public function rejectClaim(Request $request, Claim $claim): JsonResponse
+    {
+        $validated = $request->validate([
+            'admin_note' => ['nullable', 'string'],
+        ]);
+
+        $claim->status = 'rejected';
+        $claim->admin_note = $validated['admin_note'] ?? null;
+        $claim->reviewed_by = $request->user()->id;
+        $claim->reviewed_at = now();
+        $claim->returned_at = null;
+        $claim->save();
+
+        NotificationService::create(
+            $claim->user_id,
+            'claim_rejected',
+            'Your claim was rejected',
+            ($claim->communityPost?->title ?: 'Found item claim').' was rejected by admin.',
+            [
+                'claim_id' => $claim->id,
+                'community_post_id' => $claim->community_post_id,
+            ],
+        );
+
+        $claimPayload = $this->transformClaim($claim->fresh([
+            'user:id,name,email,profile_image',
+            'item:id,title,type,status,location,item_date,image',
+            'communityPost.user:id,name,email,profile_image',
+            'communityPost.category:id,name',
+            'reviewedBy:id,name',
+        ]));
+
+        WebhookDispatcher::dispatch('claim_rejected', [
+            'claim' => $claimPayload,
+        ]);
+
+        return response()->json([
+            'message' => 'Claim rejected successfully.',
+            'claim' => $claimPayload,
+        ]);
+    }
+
+    public function returnClaim(Request $request, Claim $claim): JsonResponse
+    {
+        $validated = $request->validate([
+            'admin_note' => ['nullable', 'string'],
+        ]);
+
+        $claim->status = 'returned';
+        $claim->admin_note = $validated['admin_note'] ?? $claim->admin_note;
+        $claim->reviewed_by = $request->user()->id;
+        $claim->reviewed_at = now();
+        $claim->returned_at = now();
+        $claim->save();
+
+        if ($claim->communityPost) {
+            $claim->communityPost->status = 'returned';
+            $claim->communityPost->returned_at = now();
+            $claim->communityPost->save();
+        }
+
+        if ($claim->item) {
+            $claim->item->status = 'returned';
+            $claim->item->returned_at = now();
+            $claim->item->save();
+        }
+
+        NotificationService::create(
+            $claim->user_id,
+            'item_returned',
+            'Your claimed item was returned',
+            ($claim->communityPost?->title ?: 'Claimed item').' has been marked as returned.',
+            [
+                'claim_id' => $claim->id,
+                'community_post_id' => $claim->community_post_id,
+            ],
+        );
+
+        if ($claim->communityPost && $claim->communityPost->user_id !== $claim->user_id) {
+            NotificationService::create(
+                $claim->communityPost->user_id,
+                'item_returned_owner',
+                'Your item was marked returned',
+                ($claim->communityPost->title ?: 'Your found item').' has been marked returned by admin.',
+                [
+                    'claim_id' => $claim->id,
+                    'community_post_id' => $claim->community_post_id,
+                ],
+            );
+        }
+
+        $claimPayload = $this->transformClaim($claim->fresh([
+            'user:id,name,email,profile_image',
+            'item:id,title,type,status,location,item_date,image',
+            'communityPost.user:id,name,email,profile_image',
+            'communityPost.category:id,name',
+            'reviewedBy:id,name',
+        ]));
+
+        WebhookDispatcher::dispatch('item_returned', [
+            'claim' => $claimPayload,
+        ]);
+
+        return response()->json([
+            'message' => 'Item marked as returned successfully.',
+            'claim' => $claimPayload,
+        ]);
+    }
+
+    public function updateCommunityPost(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:pending,approved,rejected,claimed,returned'],
+            'admin_note' => ['nullable', 'string'],
+        ]);
+
+        $communityPost->status = $validated['status'];
+        $communityPost->admin_note = $validated['admin_note'] ?? null;
+
+        if ($validated['status'] === 'approved' || $validated['status'] === 'claimed') {
             $communityPost->status = 'approved';
             $communityPost->approved_by = $request->user()->id;
             $communityPost->approved_at = now();
             $communityPost->rejected_at = null;
+            $communityPost->returned_at = null;
+        }
+
+        if ($validated['status'] === 'claimed') {
+            $communityPost->status = 'claimed';
         }
 
         if ($validated['status'] === 'rejected') {
@@ -185,6 +397,12 @@ class AdminController extends Controller
             $communityPost->rejected_at = now();
             $communityPost->approved_by = null;
             $communityPost->approved_at = null;
+            $communityPost->returned_at = null;
+        }
+
+        if ($validated['status'] === 'returned') {
+            $communityPost->status = 'returned';
+            $communityPost->returned_at = now();
         }
 
         if ($validated['status'] === 'pending') {
@@ -192,9 +410,9 @@ class AdminController extends Controller
             $communityPost->approved_by = null;
             $communityPost->approved_at = null;
             $communityPost->rejected_at = null;
+            $communityPost->returned_at = null;
         }
 
-        $communityPost->admin_note = $validated['admin_note'] ?? null;
         $communityPost->save();
 
         return response()->json([
@@ -214,15 +432,33 @@ class AdminController extends Controller
         $communityPost->approved_by = $request->user()->id;
         $communityPost->approved_at = now();
         $communityPost->rejected_at = null;
+        $communityPost->returned_at = null;
         $communityPost->save();
+
+        NotificationService::create(
+            $communityPost->user_id,
+            'post_approved',
+            'Your post was approved',
+            ($communityPost->title ?: ucfirst($communityPost->post_type).' post').' is now visible.',
+            [
+                'post_id' => $communityPost->id,
+                'post_type' => $communityPost->post_type,
+            ],
+        );
+
+        $postPayload = $this->transformCommunityPost($communityPost->fresh([
+            'user:id,name,email,profile_image',
+            'category:id,name',
+            'approvedBy:id,name',
+        ]));
+
+        WebhookDispatcher::dispatch('post_approved', [
+            'post' => $postPayload,
+        ]);
 
         return response()->json([
             'message' => 'Community post approved successfully.',
-            'post' => $this->transformCommunityPost($communityPost->fresh([
-                'user:id,name,email,profile_image',
-                'category:id,name',
-                'approvedBy:id,name',
-            ])),
+            'post' => $postPayload,
         ]);
     }
 
@@ -237,15 +473,33 @@ class AdminController extends Controller
         $communityPost->rejected_at = now();
         $communityPost->approved_at = null;
         $communityPost->approved_by = null;
+        $communityPost->returned_at = null;
         $communityPost->save();
+
+        NotificationService::create(
+            $communityPost->user_id,
+            'post_rejected',
+            'Your post was rejected',
+            ($communityPost->title ?: ucfirst($communityPost->post_type).' post').' was rejected by admin.',
+            [
+                'post_id' => $communityPost->id,
+                'post_type' => $communityPost->post_type,
+            ],
+        );
+
+        $postPayload = $this->transformCommunityPost($communityPost->fresh([
+            'user:id,name,email,profile_image',
+            'category:id,name',
+            'approvedBy:id,name',
+        ]));
+
+        WebhookDispatcher::dispatch('post_rejected', [
+            'post' => $postPayload,
+        ]);
 
         return response()->json([
             'message' => 'Community post rejected successfully.',
-            'post' => $this->transformCommunityPost($communityPost->fresh([
-                'user:id,name,email,profile_image',
-                'category:id,name',
-                'approvedBy:id,name',
-            ])),
+            'post' => $postPayload,
         ]);
     }
 
@@ -378,6 +632,9 @@ class AdminController extends Controller
 
     protected function transformClaim(Claim $claim): array
     {
+        $communityPost = $claim->communityPost;
+        $linkedItem = $claim->item;
+
         return [
             'id' => $claim->id,
             'status' => $claim->status,
@@ -385,7 +642,10 @@ class AdminController extends Controller
             'contact_phone' => $claim->contact_phone,
             'admin_note' => $claim->admin_note,
             'reviewed_at' => optional($claim->reviewed_at)?->toISOString(),
+            'returned_at' => optional($claim->returned_at)?->toISOString(),
             'created_at' => optional($claim->created_at)?->toISOString(),
+            'community_post_id' => $claim->community_post_id,
+            'item_id' => $claim->item_id,
             'user' => $claim->user ? [
                 'id' => $claim->user->id,
                 'name' => $claim->user->name,
@@ -394,17 +654,41 @@ class AdminController extends Controller
                     ? asset('storage/'.$claim->user->profile_image)
                     : null,
             ] : null,
-            'item' => $claim->item ? [
-                'id' => $claim->item->id,
-                'title' => $claim->item->title,
-                'type' => $claim->item->type,
-                'status' => $claim->item->status,
-                'location' => $claim->item->location,
-                'item_date' => optional($claim->item->item_date)?->format('Y-m-d'),
-                'image_url' => $claim->item->image
-                    ? asset('storage/'.$claim->item->image)
+            'item' => $communityPost ? [
+                'id' => $communityPost->id,
+                'title' => $communityPost->title,
+                'type' => $communityPost->post_type,
+                'status' => $communityPost->status,
+                'content' => $communityPost->content,
+                'location' => $communityPost->location,
+                'item_date' => optional($communityPost->item_date)?->format('Y-m-d'),
+                'returned_at' => optional($communityPost->returned_at)?->toISOString(),
+                'image_url' => $communityPost->image
+                    ? asset('storage/'.$communityPost->image)
                     : null,
-            ] : null,
+                'category' => $communityPost->category ? [
+                    'id' => $communityPost->category->id,
+                    'name' => $communityPost->category->name,
+                ] : null,
+                'user' => $communityPost->user ? [
+                    'id' => $communityPost->user->id,
+                    'name' => $communityPost->user->name,
+                    'email' => $communityPost->user->email,
+                    'profile_image_url' => $communityPost->user->profile_image
+                        ? asset('storage/'.$communityPost->user->profile_image)
+                        : null,
+                ] : null,
+            ] : ($linkedItem ? [
+                'id' => $linkedItem->id,
+                'title' => $linkedItem->title,
+                'type' => $linkedItem->type,
+                'status' => $linkedItem->status,
+                'location' => $linkedItem->location,
+                'item_date' => optional($linkedItem->item_date)?->format('Y-m-d'),
+                'image_url' => $linkedItem->image
+                    ? asset('storage/'.$linkedItem->image)
+                    : null,
+            ] : null),
             'reviewed_by' => $claim->reviewedBy ? [
                 'id' => $claim->reviewedBy->id,
                 'name' => $claim->reviewedBy->name,

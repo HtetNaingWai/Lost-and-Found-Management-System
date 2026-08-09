@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import BrandMark from '../components/BrandMark'
 import Icon from '../components/Icon'
 import { apiRequest } from '../services/api'
@@ -26,8 +27,34 @@ const emptyOverview = {
   recent_contact_messages: [],
 }
 
+const routeSectionMap = {
+  '/admin': 'overview',
+  '/admin/pending-posts': 'pending',
+  '/admin/lost-items': 'lost',
+  '/admin/found-items': 'found',
+  '/admin/users': 'users',
+  '/admin/claims': 'claims',
+  '/admin/contact-messages': 'contact',
+  '/admin/notifications': 'notifications',
+  '/admin/settings': 'settings',
+  '/admin/profile': 'settings',
+}
+
+const sectionRouteMap = {
+  overview: '/admin',
+  pending: '/admin/pending-posts',
+  lost: '/admin/lost-items',
+  found: '/admin/found-items',
+  users: '/admin/users',
+  claims: '/admin/claims',
+  contact: '/admin/contact-messages',
+  notifications: '/admin/notifications',
+  settings: '/admin/settings',
+}
+
 function AdminDashboard({ user, token, onLogout }) {
-  const [activeSection, setActiveSection] = useState('overview')
+  const location = useLocation()
+  const navigate = useNavigate()
   const [overview, setOverview] = useState(emptyOverview)
   const [allPosts, setAllPosts] = useState([])
   const [users, setUsers] = useState([])
@@ -37,7 +64,21 @@ function AdminDashboard({ user, token, onLogout }) {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [savingPostId, setSavingPostId] = useState(null)
+  const [savingClaimId, setSavingClaimId] = useState(null)
   const [selectedPost, setSelectedPost] = useState(null)
+  const [webhookEndpoints, setWebhookEndpoints] = useState([])
+  const [supportedWebhookEvents, setSupportedWebhookEvents] = useState([])
+  const [loadingWebhooks, setLoadingWebhooks] = useState(false)
+  const [savingWebhook, setSavingWebhook] = useState(false)
+  const [selectedWebhookId, setSelectedWebhookId] = useState(null)
+  const [webhookForm, setWebhookForm] = useState({
+    name: '',
+    url: '',
+    secret: '',
+    events: [],
+  })
+
+  const activeSection = routeSectionMap[location.pathname] ?? 'overview'
 
   const loadDashboard = async ({ silent = false } = {}) => {
     if (!token) return
@@ -140,6 +181,30 @@ function AdminDashboard({ user, token, onLogout }) {
     return () => {
       ignore = true
     }
+  }, [token])
+
+  const loadWebhooks = async ({ silent = false } = {}) => {
+    if (!token) return
+
+    if (!silent) {
+      setLoadingWebhooks(true)
+    }
+
+    try {
+      const payload = await apiRequest('/admin/webhooks', { token })
+      setSupportedWebhookEvents(payload.supported_events ?? [])
+      setWebhookEndpoints(payload.endpoints ?? [])
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? 'Failed to load webhook endpoints.')
+    } finally {
+      if (!silent) {
+        setLoadingWebhooks(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    void loadWebhooks()
   }, [token])
 
   const pendingPosts = useMemo(
@@ -264,6 +329,45 @@ function AdminDashboard({ user, token, onLogout }) {
       setFeedback(requestError.payload?.message ?? `Failed to ${status} post.`)
     } finally {
       setSavingPostId(null)
+    }
+  }
+
+  const handleClaimUpdate = async (claimId, status) => {
+    setSavingClaimId(claimId)
+    setFeedback('')
+
+    const note =
+      status === 'rejected' || status === 'returned'
+        ? window.prompt(
+            status === 'returned'
+              ? 'Add an admin note for marking this item as returned (optional):'
+              : 'Add an admin note for this claim rejection (optional):',
+            '',
+          ) ?? ''
+        : ''
+
+    try {
+      const actionMap = {
+        approved: 'approve',
+        rejected: 'reject',
+        returned: 'return',
+      }
+
+      const payload = await apiRequest(
+        `/admin/claims/${claimId}/${actionMap[status] ?? 'approve'}`,
+        {
+          method: 'PUT',
+          token,
+          body: note ? { admin_note: note } : {},
+        },
+      )
+
+      setFeedback(payload.message ?? `Claim ${status} successfully.`)
+      await loadDashboard({ silent: true })
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? `Failed to ${status} claim.`)
+    } finally {
+      setSavingClaimId(null)
     }
   }
 
@@ -486,15 +590,49 @@ function AdminDashboard({ user, token, onLogout }) {
               <div>
                 <strong>{claim.item?.title || 'Claimed item'}</strong>
                 <p>{claim.proof_description || 'No proof description provided.'}</p>
+                <p>{claim.item?.location || 'No location'} • {claim.contact_phone || 'No phone'}</p>
+                {claim.admin_note ? <p>Admin note: {claim.admin_note}</p> : null}
               </div>
 
               <div className="admin-list-meta">
                 <span>{claim.user?.name || 'Unknown user'}</span>
-                <span>{claim.contact_phone || 'No phone'}</span>
                 <span className={`badge badge-status admin-status-badge admin-status-${claim.status}`}>
                   {claim.status}
                 </span>
                 <span>{formatDate(claim.created_at)}</span>
+                <span>{claim.item?.user?.name ? `Owner: ${claim.item.user.name}` : 'Owner unavailable'}</span>
+                {claim.status === 'pending' ? (
+                  <div className="admin-actions">
+                    <button
+                      type="button"
+                      className="quick-action-button admin-inline-button"
+                      disabled={savingClaimId === claim.id}
+                      onClick={() => void handleClaimUpdate(claim.id, 'approved')}
+                    >
+                      {savingClaimId === claim.id ? 'Saving...' : 'Approve'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-action-button admin-inline-button admin-reject-button"
+                      disabled={savingClaimId === claim.id}
+                      onClick={() => void handleClaimUpdate(claim.id, 'rejected')}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                ) : null}
+                {claim.status === 'approved' ? (
+                  <div className="admin-actions">
+                    <button
+                      type="button"
+                      className="quick-action-button admin-inline-button"
+                      disabled={savingClaimId === claim.id}
+                      onClick={() => void handleClaimUpdate(claim.id, 'returned')}
+                    >
+                      {savingClaimId === claim.id ? 'Saving...' : 'Mark Returned'}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </article>
           ))}
@@ -566,13 +704,257 @@ function AdminDashboard({ user, token, onLogout }) {
     </section>
   )
 
+  const handleWebhookFieldChange = (field, value) => {
+    setWebhookForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleWebhookEventToggle = (eventName) => {
+    setWebhookForm((current) => ({
+      ...current,
+      events: current.events.includes(eventName)
+        ? current.events.filter((entry) => entry !== eventName)
+        : [...current.events, eventName],
+    }))
+  }
+
+  const handleWebhookSubmit = async (event) => {
+    event.preventDefault()
+    setSavingWebhook(true)
+    setFeedback('')
+
+    const method = selectedWebhookId ? 'PATCH' : 'POST'
+    const path = selectedWebhookId ? `/admin/webhooks/${selectedWebhookId}` : '/admin/webhooks'
+
+    try {
+      const payload = await apiRequest(path, {
+        method,
+        token,
+        body: webhookForm,
+      })
+
+      setFeedback(payload.message ?? 'Webhook saved successfully.')
+      setSelectedWebhookId(null)
+      setWebhookForm({
+        name: '',
+        url: '',
+        secret: '',
+        events: [],
+      })
+      await loadWebhooks({ silent: true })
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? 'Failed to save webhook endpoint.')
+    } finally {
+      setSavingWebhook(false)
+    }
+  }
+
+  const handleEditWebhook = (endpoint) => {
+    setSelectedWebhookId(endpoint.id)
+    setWebhookForm({
+      name: endpoint.name,
+      url: endpoint.url,
+      secret: endpoint.secret,
+      events: endpoint.events ?? [],
+    })
+  }
+
+  const handleDeleteWebhook = async (endpointId) => {
+    if (!window.confirm('Delete this webhook endpoint?')) return
+
+    setFeedback('')
+
+    try {
+      const payload = await apiRequest(`/admin/webhooks/${endpointId}`, {
+        method: 'DELETE',
+        token,
+      })
+      setFeedback(payload.message ?? 'Webhook deleted successfully.')
+      if (selectedWebhookId === endpointId) {
+        setSelectedWebhookId(null)
+        setWebhookForm({
+          name: '',
+          url: '',
+          secret: '',
+          events: [],
+        })
+      }
+      await loadWebhooks({ silent: true })
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? 'Failed to delete webhook endpoint.')
+    }
+  }
+
+  const handleToggleWebhook = async (endpoint) => {
+    setFeedback('')
+
+    try {
+      const payload = await apiRequest(`/admin/webhooks/${endpoint.id}`, {
+        method: 'PATCH',
+        token,
+        body: {
+          status: endpoint.status === 'active' ? 'inactive' : 'active',
+        },
+      })
+      setFeedback(payload.message ?? 'Webhook updated successfully.')
+      await loadWebhooks({ silent: true })
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? 'Failed to update webhook status.')
+    }
+  }
+
+  const handleTestWebhook = async (endpointId) => {
+    setFeedback('')
+
+    try {
+      const payload = await apiRequest(`/admin/webhooks/${endpointId}/test`, {
+        method: 'POST',
+        token,
+      })
+      setFeedback(payload.message ?? 'Test webhook queued successfully.')
+      await loadWebhooks({ silent: true })
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? 'Failed to send test webhook.')
+    }
+  }
+
   const renderSettings = () => (
     <section className="dashboard-panel admin-dashboard-panel">
       <div className="section-panel-heading">
         <h2>Settings</h2>
-        <p>Admin system configuration can be connected here next.</p>
+        <p>Manage outbound webhook endpoints and delivery subscriptions.</p>
       </div>
-      {renderEmpty('Settings will appear here when the admin configuration module is ready.', 'settings')}
+
+      <div className="admin-webhook-grid">
+        <section className="simple-info-card">
+          <div className="section-panel-heading">
+            <h2>{selectedWebhookId ? 'Edit Webhook Endpoint' : 'Create Webhook Endpoint'}</h2>
+            <p>Configure the destination URL, secret, and event subscriptions.</p>
+          </div>
+
+          <form className="profile-form" onSubmit={handleWebhookSubmit}>
+            <div className="profile-form-grid">
+              <label className="profile-form-field">
+                <span>Name</span>
+                <input
+                  value={webhookForm.name}
+                  onChange={(event) => handleWebhookFieldChange('name', event.target.value)}
+                  placeholder="CRM Integration"
+                />
+              </label>
+              <label className="profile-form-field">
+                <span>URL</span>
+                <input
+                  value={webhookForm.url}
+                  onChange={(event) => handleWebhookFieldChange('url', event.target.value)}
+                  placeholder="https://example.com/webhooks/findit"
+                />
+              </label>
+              <label className="profile-form-field profile-form-field-full">
+                <span>Secret</span>
+                <input
+                  value={webhookForm.secret}
+                  onChange={(event) => handleWebhookFieldChange('secret', event.target.value)}
+                  placeholder="Leave as-is to keep the current secret"
+                />
+              </label>
+            </div>
+
+            <div className="admin-webhook-events">
+              {supportedWebhookEvents.map((eventName) => (
+                <label className="admin-webhook-event-option" key={eventName}>
+                  <input
+                    type="checkbox"
+                    checked={webhookForm.events.includes(eventName)}
+                    onChange={() => handleWebhookEventToggle(eventName)}
+                  />
+                  <span>{eventName}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="profile-form-actions">
+              {selectedWebhookId ? (
+                <button
+                  type="button"
+                  className="secondary-action-button"
+                  onClick={() => {
+                    setSelectedWebhookId(null)
+                    setWebhookForm({
+                      name: '',
+                      url: '',
+                      secret: '',
+                      events: [],
+                    })
+                  }}
+                >
+                  Cancel Edit
+                </button>
+              ) : null}
+              <button type="submit" className="quick-action-button" disabled={savingWebhook}>
+                {savingWebhook ? 'Saving...' : selectedWebhookId ? 'Save Changes' : 'Create Endpoint'}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="simple-info-card">
+          <div className="section-panel-heading">
+            <h2>Webhook Endpoints</h2>
+            <p>Review status, recent deliveries, and test each endpoint.</p>
+          </div>
+
+          {loadingWebhooks ? (
+            <div className="settings-note">Loading webhook endpoints...</div>
+          ) : webhookEndpoints.length > 0 ? (
+            <div className="admin-list admin-webhook-list">
+              {webhookEndpoints.map((endpoint) => (
+                <article className="admin-list-item admin-webhook-item" key={endpoint.id}>
+                  <div className="admin-webhook-copy">
+                    <strong>{endpoint.name}</strong>
+                    <p>{endpoint.url}</p>
+                    <p>Events: {(endpoint.events ?? []).join(', ')}</p>
+                    <p>Secret: {endpoint.secret}</p>
+                    {endpoint.deliveries?.length ? (
+                      <div className="admin-webhook-deliveries">
+                        {endpoint.deliveries.map((delivery) => (
+                          <div key={delivery.id} className="admin-webhook-delivery">
+                            <strong>{delivery.event_name}</strong>
+                            <span>
+                              {delivery.response_status ? `HTTP ${delivery.response_status}` : 'Queued'}
+                              {' • '}
+                              {delivery.failed_at ? 'Failed' : delivery.delivered_at ? 'Delivered' : 'Pending'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="admin-actions">
+                    <span className={`badge badge-status admin-status-badge admin-status-${endpoint.status}`}>
+                      {endpoint.status}
+                    </span>
+                    <button type="button" className="secondary-action-button admin-inline-button" onClick={() => handleEditWebhook(endpoint)}>
+                      Edit
+                    </button>
+                    <button type="button" className="secondary-action-button admin-inline-button" onClick={() => void handleToggleWebhook(endpoint)}>
+                      {endpoint.status === 'active' ? 'Disable' : 'Enable'}
+                    </button>
+                    <button type="button" className="secondary-action-button admin-inline-button" onClick={() => void handleTestWebhook(endpoint.id)}>
+                      Send Test
+                    </button>
+                    <button type="button" className="secondary-action-button admin-inline-button admin-reject-button" onClick={() => void handleDeleteWebhook(endpoint.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            renderEmpty('No webhook endpoints configured yet.', 'settings')
+          )}
+        </section>
+      </div>
     </section>
   )
 
@@ -756,7 +1138,12 @@ function AdminDashboard({ user, token, onLogout }) {
                     type="button"
                     key={item.key}
                     className={`admin-sidebar-link${activeSection === item.key ? ' is-active' : ''}`}
-                    onClick={() => setActiveSection(item.key)}
+                    onClick={() => {
+                      const nextPath = sectionRouteMap[item.key] ?? '/admin'
+                      if (nextPath !== location.pathname) {
+                        navigate(nextPath)
+                      }
+                    }}
                   >
                     <span className="admin-sidebar-link-icon">
                       <Icon name={item.icon} />

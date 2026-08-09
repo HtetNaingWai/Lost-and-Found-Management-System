@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CommunityPost extends Model
 {
@@ -21,6 +22,7 @@ class CommunityPost extends Model
         'approved_by',
         'approved_at',
         'rejected_at',
+        'returned_at',
     ];
 
     protected function casts(): array
@@ -29,6 +31,7 @@ class CommunityPost extends Model
             'item_date' => 'date',
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
+            'returned_at' => 'datetime',
         ];
     }
 
@@ -45,5 +48,10 @@ class CommunityPost extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function claims(): HasMany
+    {
+        return $this->hasMany(Claim::class);
     }
 }

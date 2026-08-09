@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import FloatingPostButton from '../components/FloatingPostButton'
 import CreatePostModal from '../components/CreatePostModal'
 import CommunityPostCard from '../components/CommunityPostCard'
@@ -102,15 +103,19 @@ function CommunityPage({
   categories,
   posts,
   myPosts,
+  myClaims = [],
   onCreatePost,
   onNavigate,
   notifications,
   onStartMessage,
+  onSubmitClaim,
+  submittingClaim = false,
 }) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedPost, setSelectedPost] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
-  const [activeSection, setActiveSection] = useState('feed')
+  const [activeSection, setActiveSection] = useState(searchParams.get('section') || 'feed')
   const [savedPostIds, setSavedPostIds] = useState([])
 
   useEffect(() => {
@@ -125,6 +130,10 @@ function CommunityPage({
   useEffect(() => {
     localStorage.setItem(SAVED_POSTS_STORAGE_KEY, JSON.stringify(savedPostIds))
   }, [savedPostIds])
+
+  useEffect(() => {
+    setActiveSection(searchParams.get('section') || 'feed')
+  }, [searchParams])
 
   const orderedPosts = useMemo(
     () =>
@@ -207,20 +216,41 @@ function CommunityPage({
             title="My Claims"
             subtitle="Track your claim requests and review progress."
           >
-            <div className="community-claim-list">
-              <article className="community-claim-item">
-                <strong>Wallet claim request</strong>
-                <span className="badge badge-status badge-pending">Pending</span>
-              </article>
-              <article className="community-claim-item">
-                <strong>Phone ownership claim</strong>
-                <span className="badge badge-status badge-approved">Approved</span>
-              </article>
-              <article className="community-claim-item">
-                <strong>Bag claim request</strong>
-                <span className="badge badge-status badge-rejected">Rejected</span>
-              </article>
-            </div>
+            {myClaims.length > 0 ? (
+              <div className="community-claim-list">
+                {myClaims.map((claim) => (
+                  <article className="community-claim-item" key={claim.id}>
+                    <div className="community-claim-copy">
+                      <strong>{claim.community_post?.title || 'Claimed item'}</strong>
+                      <p>
+                        {(claim.community_post?.category?.name || 'General')}
+                        {' • '}
+                        {claim.community_post?.location || 'No location provided'}
+                      </p>
+                      <p>
+                        Submitted{' '}
+                        {new Date(claim.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </p>
+                      {claim.reviewed_at ? <p>Reviewed {new Date(claim.reviewed_at).toLocaleDateString('en-US')}</p> : null}
+                      {claim.returned_at ? <p>Returned {new Date(claim.returned_at).toLocaleDateString('en-US')}</p> : null}
+                      {claim.admin_note ? <p>Admin note: {claim.admin_note}</p> : null}
+                    </div>
+                    <span className={`badge badge-status badge-${claim.status}`}>
+                      {claim.status.charAt(0).toUpperCase() + claim.status.slice(1)}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="community-empty-state">
+                <strong>No claims yet.</strong>
+                <p>When you recognize an approved found item, open it and submit your claim.</p>
+              </div>
+            )}
           </PlaceholderPanel>
         )
       case 'notifications':
@@ -266,6 +296,7 @@ function CommunityPage({
                 }
 
                 setActiveSection(section)
+                setSearchParams(section === 'feed' ? {} : { section })
               }}
               onOpenCreatePost={() => setIsModalOpen(true)}
               notifications={notifications}
@@ -297,6 +328,9 @@ function CommunityPage({
           setSelectedPost(null)
           onStartMessage?.(targetUser, relatedPost)
         }}
+        existingClaim={myClaims.find((claim) => claim.community_post?.id === selectedPost?.id)}
+        onSubmitClaim={onSubmitClaim}
+        submittingClaim={submittingClaim}
       />
       <ImagePreviewModal preview={imagePreview} onClose={() => setImagePreview(null)} />
     </>

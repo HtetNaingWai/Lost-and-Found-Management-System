@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import DashboardNavbar from '../components/DashboardNavbar'
 import Icon from '../components/Icon'
 import CommunityPage from './CommunityPage'
 import PostDetailModal from '../components/PostDetailModal'
 import {
-  adminDashboardMenuItems,
-  adminProfileDropdownItems,
   dashboardMenuItems,
   profileDropdownItems,
 } from '../utils/constants'
 import { apiRequest } from '../services/api'
+import {
+  disconnectRealtime,
+  getConversationChannelName,
+  getPresenceChannelName,
+  getRealtimeClient,
+  getUserChannelName,
+} from '../services/realtime'
 import { formatDate } from '../utils/formatDate'
 
 function PageShell({ title, subtitle, children }) {
@@ -27,7 +32,7 @@ function PageShell({ title, subtitle, children }) {
   )
 }
 
-function ItemsPage({ type, items, user, onStartMessage }) {
+function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitClaim, submittingClaim }) {
   const [selectedPost, setSelectedPost] = useState(null)
   const filtered = items.filter((item) => (item.post_type ?? item.type)?.toLowerCase() === type)
 
@@ -89,6 +94,9 @@ function ItemsPage({ type, items, user, onStartMessage }) {
           setSelectedPost(null)
           onStartMessage?.(targetUser, relatedPost)
         }}
+        existingClaim={myClaims.find((claim) => claim.community_post?.id === selectedPost?.id)}
+        onSubmitClaim={onSubmitClaim}
+        submittingClaim={submittingClaim}
       />
     </>
   )
@@ -305,22 +313,69 @@ function MessagesPage({
   contactUsers,
   onOpenConversation,
   onSendMessage,
+  onTypingStateChange,
   sendingMessage,
   loadingConversation,
   messageError,
+  onlineUserIds,
+  typingParticipantId,
 }) {
   const [draftMessage, setDraftMessage] = useState('')
+  const typingTimeoutRef = useRef(null)
 
   useEffect(() => {
     setDraftMessage('')
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = null
+    }
+    if (activeConversation?.participant?.id) {
+      onTypingStateChange?.(activeConversation.participant.id, false)
+    }
   }, [activeConversation?.participant?.id])
+
+  useEffect(() => () => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+  }, [])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     if (!activeConversation?.participant?.id || !draftMessage.trim()) return
 
     await onSendMessage(activeConversation.participant.id, draftMessage.trim())
+    onTypingStateChange?.(activeConversation.participant.id, false)
     setDraftMessage('')
+  }
+
+  const handleDraftChange = (event) => {
+    const nextValue = event.target.value
+    setDraftMessage(nextValue)
+
+    if (!activeConversation?.participant?.id) {
+      return
+    }
+
+    if (!nextValue.trim()) {
+      onTypingStateChange?.(activeConversation.participant.id, false)
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = null
+      }
+      return
+    }
+
+    onTypingStateChange?.(activeConversation.participant.id, true)
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      onTypingStateChange?.(activeConversation.participant.id, false)
+      typingTimeoutRef.current = null
+    }, 1500)
   }
 
   return (
@@ -357,6 +412,9 @@ function MessagesPage({
                     <span className="messages-conversation-copy">
                       <strong>{participant.name}</strong>
                       <small>{latestMessage?.message || 'Start a new conversation'}</small>
+                      <span className={`messages-presence-text${onlineUserIds.includes(participant.id) ? ' is-online' : ''}`}>
+                        {onlineUserIds.includes(participant.id) ? 'Online' : 'Offline'}
+                      </span>
                     </span>
                     <span className="messages-conversation-meta">
                       <span>
@@ -416,7 +474,11 @@ function MessagesPage({
                   </span>
                   <div>
                     <strong>{activeConversation.participant.name}</strong>
-                    <p>{activeConversation.participant.email}</p>
+                    <p>
+                      {activeConversation.participant.email}
+                      {' • '}
+                      {onlineUserIds.includes(activeConversation.participant.id) ? 'Online' : 'Offline'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -442,6 +504,9 @@ function MessagesPage({
                 ) : (
                   <div className="settings-note">No messages yet. Say hello to start the conversation.</div>
                 )}
+                {typingParticipantId === activeConversation.participant.id ? (
+                  <div className="messages-typing-indicator">Typing...</div>
+                ) : null}
               </div>
 
               <form className="messages-composer" onSubmit={handleSubmit}>
@@ -449,7 +514,7 @@ function MessagesPage({
                   rows="3"
                   placeholder={`Write a message to ${activeConversation.participant.name}...`}
                   value={draftMessage}
-                  onChange={(event) => setDraftMessage(event.target.value)}
+                  onChange={handleDraftChange}
                 />
                 <div className="messages-composer-actions">
                   <button type="submit" className="quick-action-button" disabled={sendingMessage || !draftMessage.trim()}>
@@ -1304,6 +1369,7 @@ function DashboardContent({
   communityPosts,
   approvedItems,
   myItems,
+  myClaims,
   onItemSubmitted,
   notifications,
   messageConversations,
@@ -1312,72 +1378,16 @@ function DashboardContent({
   contactUsers,
   onOpenConversation,
   onSendMessage,
+  onTypingStateChange,
+  onSubmitClaim,
+  submittingClaim,
   sendingMessage,
   loadingConversation,
   messageError,
   onStartMessage,
-  adminOverview,
-  adminUsers,
-  adminItems,
-  adminMessages,
-  onUpdateAdminUser,
-  onUpdateAdminItem,
-  onUpdateAdminMessage,
-  savingUserId,
-  savingItemId,
-  savingMessageId,
+  onlineUserIds,
+  typingParticipantId,
 }) {
-  if (user.role === 'admin') {
-    switch (activePage) {
-      case 'users':
-        return (
-          <AdminUsersPage
-            users={adminUsers}
-            onUpdateUser={onUpdateAdminUser}
-            savingUserId={savingUserId}
-          />
-        )
-      case 'admin-lost-items':
-        return (
-          <AdminItemsPage
-            title="Lost Item Moderation"
-            subtitle="Review and manage lost item reports submitted by the community."
-            items={adminItems.filter((item) => item.type === 'lost')}
-            onUpdateItem={onUpdateAdminItem}
-            savingItemId={savingItemId}
-          />
-        )
-      case 'admin-found-items':
-        return (
-          <AdminItemsPage
-            title="Found Item Moderation"
-            subtitle="Review and manage found item reports submitted by the community."
-            items={adminItems.filter((item) => item.type === 'found')}
-            onUpdateItem={onUpdateAdminItem}
-            savingItemId={savingItemId}
-          />
-        )
-      case 'contact-messages':
-        return (
-          <AdminContactMessagesPage
-            messages={adminMessages}
-            onUpdateMessage={onUpdateAdminMessage}
-            savingMessageId={savingMessageId}
-          />
-        )
-      case 'profile':
-        return <ProfilePage user={user} token={token} onUserUpdate={onUserUpdate} />
-      default:
-        return (
-          <AdminDashboardHome
-            user={user}
-            overview={adminOverview}
-            onNavigate={onNavigate}
-          />
-        )
-    }
-  }
-
   switch (activePage) {
     case 'community':
       return (
@@ -1387,16 +1397,39 @@ function DashboardContent({
           categories={categories}
           posts={communityPosts}
           myPosts={myItems}
+          myClaims={myClaims}
           onCreatePost={onItemSubmitted}
           onNavigate={onNavigate}
           notifications={notifications}
           onStartMessage={onStartMessage}
+          onSubmitClaim={onSubmitClaim}
+          submittingClaim={submittingClaim}
         />
       )
     case 'lost-items':
-      return <ItemsPage type="lost" items={approvedItems} user={user} onStartMessage={onStartMessage} />
+      return (
+        <ItemsPage
+          type="lost"
+          items={approvedItems}
+          user={user}
+          onStartMessage={onStartMessage}
+          myClaims={myClaims}
+          onSubmitClaim={onSubmitClaim}
+          submittingClaim={submittingClaim}
+        />
+      )
     case 'found-items':
-      return <ItemsPage type="found" items={approvedItems} user={user} onStartMessage={onStartMessage} />
+      return (
+        <ItemsPage
+          type="found"
+          items={approvedItems}
+          user={user}
+          onStartMessage={onStartMessage}
+          myClaims={myClaims}
+          onSubmitClaim={onSubmitClaim}
+          submittingClaim={submittingClaim}
+        />
+      )
     case 'report-items':
       return (
         <ReportItemsPage
@@ -1416,9 +1449,12 @@ function DashboardContent({
           contactUsers={contactUsers}
           onOpenConversation={onOpenConversation}
           onSendMessage={onSendMessage}
+          onTypingStateChange={onTypingStateChange}
           sendingMessage={sendingMessage}
           loadingConversation={loadingConversation}
           messageError={messageError}
+          onlineUserIds={onlineUserIds}
+          typingParticipantId={typingParticipantId}
         />
       )
     case 'contact':
@@ -1449,46 +1485,31 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const [communityPosts, setCommunityPosts] = useState([])
   const [approvedItems, setApprovedItems] = useState([])
   const [myItems, setMyItems] = useState([])
+  const [userOverview, setUserOverview] = useState(null)
+  const [notificationItems, setNotificationItems] = useState([])
   const [messageConversations, setMessageConversations] = useState([])
+  const [myClaims, setMyClaims] = useState([])
   const [activeConversation, setActiveConversation] = useState(null)
   const [activeConversationMessages, setActiveConversationMessages] = useState([])
   const [loadingConversation, setLoadingConversation] = useState(false)
   const [sendingMessage, setSendingMessage] = useState(false)
+  const [submittingClaim, setSubmittingClaim] = useState(false)
   const [messageError, setMessageError] = useState('')
-  const [adminOverview, setAdminOverview] = useState(null)
-  const [adminUsers, setAdminUsers] = useState([])
-  const [adminItems, setAdminItems] = useState([])
-  const [adminMessages, setAdminMessages] = useState([])
-  const [adminLoading, setAdminLoading] = useState(false)
-  const [adminError, setAdminError] = useState('')
-  const [savingUserId, setSavingUserId] = useState(null)
-  const [savingItemId, setSavingItemId] = useState(null)
-  const [savingMessageId, setSavingMessageId] = useState(null)
+  const [onlineUserIds, setOnlineUserIds] = useState([])
+  const [typingParticipantId, setTypingParticipantId] = useState(null)
   const profileRef = useRef(null)
   const notificationRef = useRef(null)
+  const activeConversationRef = useRef(null)
+  const typingStateRef = useRef({ receiverId: null, isTyping: false })
   const location = useLocation()
   const navigate = useNavigate()
-  const isAdmin = user.role === 'admin'
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    activeConversationRef.current = activeConversation
+  }, [activeConversation])
 
   const activePage = useMemo(() => {
-    if (isAdmin) {
-      switch (location.pathname) {
-        case '/admin/users':
-          return 'users'
-        case '/admin/lost-items':
-          return 'admin-lost-items'
-        case '/admin/found-items':
-          return 'admin-found-items'
-        case '/admin/contact-messages':
-          return 'contact-messages'
-        case '/admin/profile':
-          return 'profile'
-        case '/admin':
-        default:
-          return 'dashboard'
-      }
-    }
-
     switch (location.pathname) {
       case '/lost-items':
         return 'lost-items'
@@ -1504,7 +1525,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       default:
         return 'community'
     }
-  }, [isAdmin, location.pathname])
+  }, [location.pathname])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1525,32 +1546,72 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     let ignore = false
 
     const loadUserData = async () => {
-      try {
-        const [categoriesPayload, communityPayload, myPostsPayload, lostPayload, foundPayload, messagesPayload] = await Promise.all([
-          apiRequest('/categories', { token }),
-          apiRequest('/community-posts', { token }),
-          apiRequest('/my-posts', { token }),
-          apiRequest('/lost-items', { token }),
-          apiRequest('/found-items', { token }),
-          apiRequest('/messages', { token }),
-        ])
+      const results = await Promise.allSettled([
+        apiRequest('/categories', { token }),
+        apiRequest('/community-posts', { token }),
+        apiRequest('/my-posts', { token }),
+        apiRequest('/lost-items', { token }),
+        apiRequest('/found-items', { token }),
+        apiRequest('/messages', { token }),
+        apiRequest('/claims', { token }),
+        apiRequest('/dashboard/overview', { token }),
+        apiRequest('/notifications', { token }),
+      ])
 
-        if (ignore) return
+      if (ignore) return
 
-        setCategories(categoriesPayload.categories ?? [])
-        setCommunityPosts(communityPayload.posts ?? [])
-        setMyItems(myPostsPayload.posts ?? [])
-        setApprovedItems([...(lostPayload.posts ?? []), ...(foundPayload.posts ?? [])])
-        setMessageConversations(messagesPayload.conversations ?? [])
-      } catch {
-        if (!ignore) {
-          setCategories([])
-          setCommunityPosts([])
-          setApprovedItems([])
-          setMyItems([])
-          setMessageConversations([])
-        }
-      }
+      const [
+        categoriesResult,
+        communityResult,
+        myPostsResult,
+        lostResult,
+        foundResult,
+        messagesResult,
+        claimsResult,
+        overviewResult,
+        notificationsResult,
+      ] = results
+
+      setCategories(
+        categoriesResult.status === 'fulfilled'
+          ? (categoriesResult.value.categories ?? [])
+          : [],
+      )
+      setCommunityPosts(
+        communityResult.status === 'fulfilled'
+          ? (communityResult.value.posts ?? [])
+          : [],
+      )
+      setMyItems(
+        myPostsResult.status === 'fulfilled'
+          ? (myPostsResult.value.posts ?? [])
+          : [],
+      )
+      setApprovedItems(
+        lostResult.status === 'fulfilled' && foundResult.status === 'fulfilled'
+          ? [...(lostResult.value.posts ?? []), ...(foundResult.value.posts ?? [])]
+          : [],
+      )
+      setMessageConversations(
+        messagesResult.status === 'fulfilled'
+          ? (messagesResult.value.conversations ?? [])
+          : [],
+      )
+      setMyClaims(
+        claimsResult.status === 'fulfilled'
+          ? (claimsResult.value.claims ?? [])
+          : [],
+      )
+      setUserOverview(
+        overviewResult.status === 'fulfilled'
+          ? (overviewResult.value ?? null)
+          : null,
+      )
+      setNotificationItems(
+        notificationsResult.status === 'fulfilled'
+          ? (notificationsResult.value.notifications ?? [])
+          : [],
+      )
     }
 
     void loadUserData()
@@ -1560,70 +1621,20 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
   }, [token])
 
-  useEffect(() => {
-    if (!isAdmin) return undefined
-
-    let ignore = false
-
-    const loadAdminData = async () => {
-      setAdminLoading(true)
-      setAdminError('')
-
-      try {
-        const [overviewPayload, usersPayload, itemsPayload, messagesPayload] = await Promise.all([
-          apiRequest('/admin/overview', { token }),
-          apiRequest('/admin/users', { token }),
-          apiRequest('/admin/community-posts', { token }),
-          apiRequest('/admin/contact-messages', { token }),
-        ])
-
-        if (ignore) return
-
-        setAdminOverview(overviewPayload)
-        setAdminUsers(usersPayload.users ?? [])
-        setAdminItems(itemsPayload.posts ?? [])
-        setAdminMessages(messagesPayload.messages ?? [])
-      } catch (error) {
-        if (!ignore) {
-          setAdminError(error.payload?.message ?? 'Failed to load admin dashboard data.')
-        }
-      } finally {
-        if (!ignore) {
-          setAdminLoading(false)
-        }
-      }
-    }
-
-    void loadAdminData()
-
-    return () => {
-      ignore = true
-    }
-  }, [isAdmin, token])
-
   const closeMenus = () => {
     setProfileOpen(false)
     setNotificationOpen(false)
     setMobileMenuOpen(false)
   }
 
-  const pageRouteMap = isAdmin
-    ? {
-        dashboard: '/admin',
-        users: '/admin/users',
-        'admin-lost-items': '/admin/lost-items',
-        'admin-found-items': '/admin/found-items',
-        'contact-messages': '/admin/contact-messages',
-        profile: '/admin/profile',
-      }
-    : {
-        community: '/community',
-        'lost-items': '/lost-items',
-        'found-items': '/found-items',
-        messages: '/messages',
-        contact: '/contact',
-        profile: '/profile',
-      }
+  const pageRouteMap = {
+    community: '/community',
+    'lost-items': '/lost-items',
+    'found-items': '/found-items',
+    messages: '/messages',
+    contact: '/contact',
+    profile: '/profile',
+  }
 
   const handleNavigate = (page) => {
     const targetPath = pageRouteMap[page]
@@ -1635,8 +1646,8 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   }
 
   const handleOpenConversation = async (participant) => {
-    if (location.pathname !== '/messages') {
-      navigate('/messages')
+    if (location.pathname !== '/messages' || searchParams.get('user') !== String(participant.id)) {
+      navigate(`/messages?user=${participant.id}`)
     }
     setActiveConversation({ participant })
     setLoadingConversation(true)
@@ -1646,19 +1657,27 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       const payload = await apiRequest(`/messages/${participant.id}`, { token })
       setActiveConversation({ participant: payload.participant })
       setActiveConversationMessages(payload.messages ?? [])
+      setSearchParams({ user: String(payload.participant.id) }, { replace: true })
       setMessageConversations((current) => {
         const exists = current.some((conversation) => conversation.participant?.id === payload.participant.id)
 
         if (exists) {
-          return current.map((conversation) =>
+          return current
+            .map((conversation) =>
             conversation.participant?.id === payload.participant.id
               ? {
                   ...conversation,
                   participant: payload.participant,
+                  latest_message: payload.messages.at(-1) ?? conversation.latest_message,
                   unread_count: 0,
                 }
               : conversation,
           )
+            .sort((left, right) => {
+              const leftTime = new Date(left.latest_message?.created_at ?? 0).getTime()
+              const rightTime = new Date(right.latest_message?.created_at ?? 0).getTime()
+              return rightTime - leftTime
+            })
         }
 
         return [
@@ -1670,6 +1689,14 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           ...current,
         ]
       })
+      setNotificationItems((current) =>
+        current.map((notification) => (
+          notification.type === 'message_received' && notification.data?.sender_id === payload.participant.id
+            ? { ...notification, read: true, read_at: notification.read_at ?? new Date().toISOString() }
+            : notification
+        )),
+      )
+      setTypingParticipantId(null)
     } catch (error) {
       setMessageError(error.payload?.message ?? 'Failed to load the conversation.')
     } finally {
@@ -1691,7 +1718,13 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         },
       })
 
-      setActiveConversationMessages((current) => [...current, payload.data])
+      setActiveConversationMessages((current) => {
+        if (current.some((entry) => entry.id === payload.data.id)) {
+          return current
+        }
+
+        return [...current, payload.data]
+      })
 
       setMessageConversations((current) => {
         const participant = payload.data.receiver?.id === user.id
@@ -1704,9 +1737,10 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           unread_count: 0,
         }
 
-        const filtered = current.filter((conversation) => conversation.participant?.id !== participant?.id)
-        return [nextConversation, ...filtered]
+      const filtered = current.filter((conversation) => conversation.participant?.id !== participant?.id)
+      return [nextConversation, ...filtered]
       })
+      handleTypingStateChange(receiverId, false)
     } catch (error) {
       setMessageError(error.payload?.message ?? 'Failed to send the message.')
       throw error
@@ -1715,141 +1749,97 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
   }
 
-  const handleUpdateAdminUser = async (userId, updates) => {
-    setSavingUserId(userId)
+  const handleTypingStateChange = (receiverId, isTyping) => {
+    if (!receiverId) return
 
-    try {
-      const payload = await apiRequest(`/admin/users/${userId}`, {
-        method: 'PATCH',
-        body: updates,
-        token,
-      })
-
-      setAdminUsers((current) =>
-        current.map((managedUser) => (managedUser.id === userId ? payload.user : managedUser)),
-      )
-      setAdminOverview((current) =>
-        current
-          ? {
-              ...current,
-              recent_users: current.recent_users?.map((managedUser) =>
-                managedUser.id === userId ? payload.user : managedUser,
-              ),
-            }
-          : current,
-      )
-    } finally {
-      setSavingUserId(null)
+    if (
+      typingStateRef.current.receiverId === receiverId
+      && typingStateRef.current.isTyping === isTyping
+    ) {
+      return
     }
+
+    typingStateRef.current = { receiverId, isTyping }
+
+    void apiRequest(isTyping ? '/messages/typing' : '/messages/typing/stop', {
+      method: 'POST',
+      token,
+      body: {
+        receiver_id: receiverId,
+      },
+    }).catch(() => {})
   }
 
-  const handleUpdateAdminItem = async (itemId, updates) => {
-    setSavingItemId(itemId)
+  const handleItemSubmitted = (payload) => {
+    const item = payload?.post ?? payload
 
-    try {
-      const payload = await apiRequest(`/admin/community-posts/${itemId}`, {
-        method: 'PATCH',
-        body: updates,
-        token,
-      })
-
-      setAdminItems((current) =>
-        current.map((item) => (item.id === itemId ? payload.post : item)),
-      )
-      setAdminOverview((current) =>
-        current
-          ? {
-              ...current,
-              recent_items: current.recent_items?.map((item) =>
-                item.id === itemId ? payload.post : item,
-              ),
-            }
-          : current,
-      )
-      setCommunityPosts((current) =>
-        current.map((item) => (item.id === itemId ? payload.post : item)),
-      )
-      setMyItems((current) =>
-        current.map((item) => (item.id === itemId ? payload.post : item)),
-      )
-      setApprovedItems((current) => {
-        const nextItems = current.filter((item) => item.id !== itemId)
-
-        if (payload.post.status === 'approved') {
-          return [payload.post, ...nextItems]
-        }
-
-        return nextItems
-      })
-    } finally {
-      setSavingItemId(null)
-    }
-  }
-
-  const handleUpdateAdminMessage = async (messageId, updates) => {
-    setSavingMessageId(messageId)
-
-    try {
-      const payload = await apiRequest(`/admin/contact-messages/${messageId}`, {
-        method: 'PATCH',
-        body: updates,
-        token,
-      })
-
-      setAdminMessages((current) =>
-        current.map((message) =>
-          message.id === messageId ? payload.contact_message : message,
-        ),
-      )
-      setAdminOverview((current) =>
-        current
-          ? {
-              ...current,
-              recent_contact_messages: current.recent_contact_messages?.map((message) =>
-                message.id === messageId ? payload.contact_message : message,
-              ),
-            }
-          : current,
-      )
-    } finally {
-      setSavingMessageId(null)
-    }
-  }
-
-  const handleItemSubmitted = (item) => {
     setCommunityPosts((current) => [item, ...current])
     setMyItems((current) => [item, ...current])
 
     if (item.status === 'approved' && ['lost', 'found'].includes(item.post_type ?? item.type)) {
       setApprovedItems((current) => [item, ...current.filter((currentItem) => currentItem.id !== item.id)])
     }
-  }
 
-  const menuItems = isAdmin ? adminDashboardMenuItems : dashboardMenuItems
-  const dropdownItems = isAdmin ? adminProfileDropdownItems : profileDropdownItems
-  const roleLabel = isAdmin ? 'Administrator' : 'Community Member'
-  const notifications = useMemo(() => {
-    if (isAdmin) {
-      return [
-        { id: 'admin-review', title: 'New item awaiting review', detail: 'A lost item post is waiting for admin approval.', time: 'Just now' },
-        { id: 'admin-message', title: 'Contact message received', detail: 'A resident submitted a new contact form message.', time: '1h ago' },
-      ]
+    if (payload?.notification) {
+      setNotificationItems((current) => [payload.notification, ...current].slice(0, 20))
     }
 
-    const postNotifications = myItems.slice(0, 2).map((item) => ({
-      id: `post-${item.id}`,
-      title: item.status === 'approved' ? 'Your post was approved' : item.status === 'rejected' ? 'Your post was rejected' : 'Your post is pending',
-      detail: item.title || 'Community post update',
-      time: formatDate(item.created_at, { month: 'short', day: 'numeric' }),
-    }))
+    if (payload?.activity) {
+      setUserOverview((current) =>
+        current
+          ? {
+              ...current,
+              recent_activity: [payload.activity, ...(current.recent_activity ?? [])].slice(0, 8),
+            }
+          : current,
+      )
+    }
+  }
 
-    return [
-      ...postNotifications,
-      { id: 'message', title: 'Someone sent you a message', detail: 'Check your inbox for the latest community reply.', time: 'Today' },
-      { id: 'claim', title: 'Your claim request is pending', detail: 'We will notify you once the review is complete.', time: 'Yesterday' },
-    ]
-  }, [isAdmin, myItems])
-  const unreadNotifications = notifications.length
+  const handleSubmitClaim = async (claimValues) => {
+    setSubmittingClaim(true)
+
+    try {
+      const payload = await apiRequest('/claims', {
+        method: 'POST',
+        token,
+        body: claimValues,
+      })
+
+      setMyClaims((current) => [payload.claim, ...current.filter((claim) => claim.id !== payload.claim.id)])
+      setUserOverview((current) =>
+        current
+          ? {
+              ...current,
+              stats: {
+                ...(current.stats ?? {}),
+                my_claim_requests: (current.stats?.my_claim_requests ?? 0) + 1,
+              },
+              recent_activity: [payload.activity, ...(current.recent_activity ?? [])].filter(Boolean).slice(0, 8),
+            }
+          : current,
+      )
+      if (payload.notification) {
+        setNotificationItems((current) => [payload.notification, ...current].slice(0, 20))
+      }
+      return payload
+    } finally {
+      setSubmittingClaim(false)
+    }
+  }
+
+  const menuItems = dashboardMenuItems
+  const dropdownItems = profileDropdownItems
+  const roleLabel = 'Community Member'
+  const notifications = useMemo(() => {
+    return notificationItems.map((notification) => ({
+      ...notification,
+      time: notification.time
+        ? formatDate(notification.time, { month: 'short', day: 'numeric' })
+        : 'Today',
+    }))
+  }, [notificationItems])
+  const unreadNotifications = notificationItems.filter((notification) => !notification.read).length
   const contactUsers = useMemo(() => {
     const map = new Map()
 
@@ -1873,22 +1863,207 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   }
 
   useEffect(() => {
-    if (
-      !isAdmin
-      && activePage === 'messages'
-      && !activeConversation
-      && contactUsers.length > 0
-    ) {
+    if (activePage !== 'messages') return
+
+    const requestedUserId = Number(searchParams.get('user'))
+
+    if (requestedUserId && activeConversation?.participant?.id !== requestedUserId) {
+      const requestedParticipant =
+        messageConversations.find((conversation) => conversation.participant?.id === requestedUserId)?.participant
+        ?? contactUsers.find((contact) => contact.id === requestedUserId)
+
+      if (requestedParticipant) {
+        void handleOpenConversation(requestedParticipant)
+      }
+      return
+    }
+
+    if (!requestedUserId && !activeConversation && contactUsers.length > 0) {
       void handleOpenConversation(contactUsers[0])
     }
-  }, [activePage, activeConversation, contactUsers, isAdmin])
+  }, [activePage, activeConversation, contactUsers, messageConversations, searchParams])
+
+  const handleMarkNotificationsRead = async () => {
+    setNotificationItems((current) =>
+      current.map((notification) => (
+        notification.read ? notification : { ...notification, read: true, read_at: new Date().toISOString() }
+      )),
+    )
+
+    try {
+      await apiRequest('/notifications/read', {
+        method: 'PATCH',
+        token,
+      })
+    } catch {
+      // Keep the optimistic read state to avoid a noisy UI reset.
+    }
+  }
+
+  useEffect(() => {
+    const echo = getRealtimeClient(token)
+
+    if (!echo || !user?.id) {
+      return undefined
+    }
+
+    const userChannel = echo.private(getUserChannelName(user.id))
+
+    userChannel.listen('.notification.created', (payload) => {
+      const nextNotification = payload.notification
+
+      if (!nextNotification?.id) {
+        return
+      }
+
+      setNotificationItems((current) => {
+        const filtered = current.filter((notification) => notification.id !== nextNotification.id)
+        return [nextNotification, ...filtered].slice(0, 20)
+      })
+    })
+
+    userChannel.listen('.notification.read', (payload) => {
+      setNotificationItems((current) =>
+        current.map((notification) => {
+          if (payload.all) {
+            return notification.read
+              ? notification
+              : { ...notification, read: true, read_at: payload.read_at ?? new Date().toISOString() }
+          }
+
+          return payload.notification_ids?.includes(notification.id)
+            ? { ...notification, read: true, read_at: payload.read_at ?? new Date().toISOString() }
+            : notification
+        }),
+      )
+    })
+
+    userChannel.listen('.message.sent', (payload) => {
+      const nextMessage = payload.message
+
+      if (!nextMessage?.id) {
+        return
+      }
+
+      const participant = nextMessage.sender?.id === user.id
+        ? nextMessage.receiver
+        : nextMessage.sender
+
+      if (!participant?.id) {
+        return
+      }
+
+      setMessageConversations((current) => {
+        const existing = current.find((conversation) => conversation.participant?.id === participant.id)
+        const unreadCount = nextMessage.receiver?.id === user.id && activeConversationRef.current?.participant?.id !== participant.id
+          ? (existing?.unread_count ?? 0) + 1
+          : 0
+
+        const nextConversation = {
+          participant,
+          latest_message: nextMessage,
+          unread_count: unreadCount,
+        }
+
+        return [
+          nextConversation,
+          ...current.filter((conversation) => conversation.participant?.id !== participant.id),
+        ]
+      })
+
+      if (activeConversationRef.current?.participant?.id === participant.id) {
+        setActiveConversationMessages((current) => {
+          if (current.some((entry) => entry.id === nextMessage.id)) {
+            return current
+          }
+
+          return [...current, nextMessage]
+        })
+        setTypingParticipantId(null)
+      }
+    })
+
+    userChannel.listen('.message.read', (payload) => {
+      if (!Array.isArray(payload.message_ids) || payload.message_ids.length === 0) {
+        return
+      }
+
+      setActiveConversationMessages((current) =>
+        current.map((message) => (
+          payload.message_ids.includes(message.id)
+            ? { ...message, is_read: true, read_at: payload.read_at ?? new Date().toISOString() }
+            : message
+        )),
+      )
+
+      setMessageConversations((current) =>
+        current.map((conversation) => (
+          conversation.participant?.id === payload.reader_id
+            ? {
+                ...conversation,
+                unread_count: 0,
+              }
+            : conversation
+        )),
+      )
+    })
+
+    const presenceChannel = echo.join(getPresenceChannelName())
+
+    presenceChannel.here((members) => {
+      setOnlineUserIds(members.map((member) => member.id))
+    })
+
+    presenceChannel.joining((member) => {
+      setOnlineUserIds((current) => (current.includes(member.id) ? current : [...current, member.id]))
+    })
+
+    presenceChannel.leaving((member) => {
+      setOnlineUserIds((current) => current.filter((id) => id !== member.id))
+    })
+
+    return () => {
+      echo.leave(getPresenceChannelName())
+      echo.leave(getUserChannelName(user.id))
+      disconnectRealtime()
+    }
+  }, [token, user?.id])
+
+  useEffect(() => {
+    const echo = getRealtimeClient(token)
+    const participantId = activeConversation?.participant?.id
+
+    if (!echo || !participantId || !user?.id) {
+      return undefined
+    }
+
+    const channelName = getConversationChannelName(user.id, participantId)
+    const channel = echo.private(channelName)
+
+    channel.listen('.message.typing', (payload) => {
+      if (payload.sender_id !== user.id) {
+        setTypingParticipantId(payload.sender_id)
+      }
+    })
+
+    channel.listen('.message.typing.stopped', (payload) => {
+      if (payload.sender_id !== user.id) {
+        setTypingParticipantId((current) => (current === payload.sender_id ? null : current))
+      }
+    })
+
+    return () => {
+      echo.leave(channelName)
+      setTypingParticipantId(null)
+    }
+  }, [activeConversation?.participant?.id, token, user?.id])
 
   return (
     <div className="dashboard-page">
       <DashboardNavbar
         user={user}
         menuItems={menuItems}
-        homePath={isAdmin ? '/admin' : '/community'}
+        homePath="/community"
         profileOpen={profileOpen}
         onToggleProfile={() => setProfileOpen((current) => !current)}
         onLogout={onLogout}
@@ -1902,26 +2077,18 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         notifications={notifications}
         notificationOpen={notificationOpen}
         onToggleNotifications={() => {
-          setNotificationOpen((current) => !current)
+          setNotificationOpen((current) => {
+            const next = !current
+            if (next && unreadNotifications > 0) {
+              void handleMarkNotificationsRead()
+            }
+            return next
+          })
           setProfileOpen(false)
         }}
         unreadNotifications={unreadNotifications}
       />
       <main className="dashboard-main">
-        {isAdmin && adminLoading ? (
-          <section className="dashboard-section">
-            <div className="container">
-              <div className="page-header-card">Loading admin dashboard...</div>
-            </div>
-          </section>
-        ) : null}
-        {isAdmin && adminError ? (
-          <section className="dashboard-section">
-            <div className="container">
-              <div className="page-header-card admin-error-card">{adminError}</div>
-            </div>
-          </section>
-        ) : null}
         <DashboardContent
           activePage={activePage}
           user={user}
@@ -1932,6 +2099,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           communityPosts={communityPosts}
           approvedItems={approvedItems}
           myItems={myItems}
+          myClaims={myClaims}
           onItemSubmitted={handleItemSubmitted}
           notifications={notifications}
           messageConversations={messageConversations}
@@ -1940,20 +2108,15 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           contactUsers={contactUsers}
           onOpenConversation={handleOpenConversation}
           onSendMessage={handleSendMessage}
+          onTypingStateChange={handleTypingStateChange}
+          onSubmitClaim={handleSubmitClaim}
+          submittingClaim={submittingClaim}
           sendingMessage={sendingMessage}
           loadingConversation={loadingConversation}
           messageError={messageError}
           onStartMessage={handleStartMessage}
-          adminOverview={adminOverview}
-          adminUsers={adminUsers}
-          adminItems={adminItems}
-          adminMessages={adminMessages}
-          onUpdateAdminUser={handleUpdateAdminUser}
-          onUpdateAdminItem={handleUpdateAdminItem}
-          onUpdateAdminMessage={handleUpdateAdminMessage}
-          savingUserId={savingUserId}
-          savingItemId={savingItemId}
-          savingMessageId={savingMessageId}
+          onlineUserIds={onlineUserIds}
+          typingParticipantId={typingParticipantId}
         />
       </main>
     </div>

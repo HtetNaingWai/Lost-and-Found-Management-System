@@ -436,6 +436,60 @@
   color: #9a6700;
 }
 
+.admin-webhook-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.admin-webhook-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-webhook-event-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f3f7f4;
+  color: #23312a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-webhook-list,
+.admin-webhook-deliveries {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-webhook-item {
+  align-items: flex-start;
+}
+
+.admin-webhook-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-webhook-copy p,
+.admin-webhook-delivery span {
+  margin: 0;
+  color: #5c6761;
+}
+
+.admin-webhook-delivery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(20, 103, 40, 0.08);
+}
+
 @media (max-width: 1180px) {
   .admin-dashboard-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -448,7 +502,8 @@
 
   .admin-dashboard-lower-grid,
   .admin-dashboard-layout,
-  .admin-post-detail {
+  .admin-post-detail,
+  .admin-webhook-grid {
     grid-template-columns: 1fr;
   }
 

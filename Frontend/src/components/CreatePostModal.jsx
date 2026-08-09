@@ -111,7 +111,7 @@ function CreatePostModal({
         body: formData,
       })
 
-      onCreatePost(payload.post)
+      onCreatePost(payload)
       onClose()
     } catch (requestError) {
       setError(requestError.payload?.message ?? 'Failed to create post.')
