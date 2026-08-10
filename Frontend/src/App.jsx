@@ -283,30 +283,6 @@ function App() {
               )}
             />
             <Route
-              path="/admin/settings"
-              element={(
-                <AdminRoute authUser={authUser}>
-                  <AdminDashboard
-                    user={authUser}
-                    token={authToken}
-                    onLogout={handleLogout}
-                  />
-                </AdminRoute>
-              )}
-            />
-            <Route
-              path="/admin/profile"
-              element={(
-                <AdminRoute authUser={authUser}>
-                  <AdminDashboard
-                    user={authUser}
-                    token={authToken}
-                    onLogout={handleLogout}
-                  />
-                </AdminRoute>
-              )}
-            />
-            <Route
               path="*"
               element={(
                 <Navigate

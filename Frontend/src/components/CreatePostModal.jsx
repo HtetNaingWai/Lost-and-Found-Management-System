@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
+import LocationPicker from './LocationPicker'
 import { ACCEPTED_FILE_TYPES, MAX_FILE_SIZE } from '../utils/constants'
 import { apiRequest } from '../services/api'
 
@@ -16,6 +17,8 @@ function CreatePostModal({
     itemTitle: '',
     categoryId: '',
     location: '',
+    latitude: '',
+    longitude: '',
     itemDate: '',
   })
   const [imageState, setImageState] = useState({ file: null, preview: '' })
@@ -46,6 +49,8 @@ function CreatePostModal({
         itemTitle: '',
         categoryId: '',
         location: '',
+        latitude: '',
+        longitude: '',
         itemDate: '',
       })
       setError('')
@@ -90,6 +95,12 @@ function CreatePostModal({
     setError('')
 
     try {
+      if (isItemPost && (!values.location.trim() || !values.latitude || !values.longitude)) {
+        setError('Please select the item location on the map.')
+        setSubmitting(false)
+        return
+      }
+
       const formData = new FormData()
       formData.append('post_type', values.postType)
       formData.append('content', values.content)
@@ -98,6 +109,8 @@ function CreatePostModal({
         formData.append('title', values.itemTitle)
         formData.append('category_id', values.categoryId)
         formData.append('location', values.location)
+        formData.append('latitude', values.latitude)
+        formData.append('longitude', values.longitude)
         formData.append('item_date', values.itemDate)
       }
 
@@ -174,10 +187,17 @@ function CreatePostModal({
               ) : null}
 
               {isItemPost ? (
-                <label className="profile-form-field">
-                  <span>Location</span>
-                  <input name="location" value={values.location} onChange={handleChange} />
-                </label>
+                <LocationPicker
+                  value={{
+                    location: values.location,
+                    latitude: values.latitude,
+                    longitude: values.longitude,
+                  }}
+                  onChange={(nextLocation) => {
+                    setValues((current) => ({ ...current, ...nextLocation }))
+                    setError('')
+                  }}
+                />
               ) : null}
 
               {isItemPost ? (

@@ -15,6 +15,8 @@ class CommunityPost extends Model
         'content',
         'category_id',
         'location',
+        'latitude',
+        'longitude',
         'item_date',
         'image',
         'status',
@@ -29,6 +31,8 @@ class CommunityPost extends Model
     {
         return [
             'item_date' => 'date',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
             'returned_at' => 'datetime',

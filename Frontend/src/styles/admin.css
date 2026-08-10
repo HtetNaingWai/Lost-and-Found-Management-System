@@ -436,58 +436,222 @@
   color: #9a6700;
 }
 
-.admin-webhook-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+.admin-status-in_progress,
+.badge-in_progress {
+  background: #e8f2ff;
+  color: #1d4ed8;
 }
 
-.admin-webhook-events {
+.admin-status-resolved,
+.badge-resolved {
+  background: #e8f8ea;
+  color: #146728;
+}
+
+.admin-contact-inbox {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 20px;
+  min-height: 620px;
+}
+
+.admin-contact-list-pane,
+.admin-contact-detail-pane {
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.admin-contact-list-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 16px;
+}
+
+.admin-contact-controls {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.admin-contact-search {
+  height: 42px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.admin-webhook-event-option {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
   border-radius: 12px;
-  background: #f3f7f4;
-  color: #23312a;
-  font-size: 13px;
-  font-weight: 700;
+  background: #f8fafc;
 }
 
-.admin-webhook-list,
-.admin-webhook-deliveries {
+.admin-contact-search svg {
+  width: 18px;
+  height: 18px;
+  fill: #64748b;
+}
+
+.admin-contact-search input,
+.admin-contact-controls select,
+.admin-contact-actions select {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+}
+
+.admin-contact-controls select,
+.admin-contact-actions select {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.admin-contact-list {
+  min-height: 0;
   display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow: auto;
+}
+
+.admin-contact-list-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.admin-contact-list-item:hover,
+.admin-contact-list-item.is-active {
+  border-color: rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.08);
+  transform: translateY(-1px);
+}
+
+.admin-contact-status-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: #f59e0b;
+}
+
+.admin-contact-status-in_progress {
+  background: #3b82f6;
+}
+
+.admin-contact-status-resolved {
+  background: #22c55e;
+}
+
+.admin-contact-list-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-contact-list-copy strong,
+.admin-contact-detail-top h3,
+.admin-contact-user-card strong,
+.admin-contact-message-body strong {
+  color: #111827;
+}
+
+.admin-contact-list-copy strong,
+.admin-contact-list-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-contact-list-copy small,
+.admin-contact-list-copy span,
+.admin-contact-list-item > small,
+.admin-contact-detail-top p,
+.admin-contact-user-card p,
+.admin-contact-message-body p,
+.admin-contact-actions span {
+  margin: 0;
+  color: #64748b;
+}
+
+.admin-contact-list-item > small {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.admin-contact-detail-pane {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 20px;
+}
+
+.admin-contact-detail-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.admin-contact-detail-top h3 {
+  margin: 12px 0 6px;
+  font-size: 24px;
+}
+
+.admin-contact-user-card {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
 }
 
-.admin-webhook-item {
-  align-items: flex-start;
+.admin-contact-message-body {
+  display: grid;
+  gap: 10px;
 }
 
-.admin-webhook-copy {
+.admin-contact-message-body p {
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.admin-contact-actions {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.admin-contact-actions label {
+  min-width: 220px;
   display: grid;
   gap: 6px;
 }
 
-.admin-webhook-copy p,
-.admin-webhook-delivery span {
-  margin: 0;
-  color: #5c6761;
-}
-
-.admin-webhook-delivery {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(20, 103, 40, 0.08);
+.admin-contact-list-item:focus-visible,
+.admin-contact-actions button:focus-visible,
+.admin-contact-search:focus-within {
+  outline: 3px solid rgba(34, 197, 94, 0.24);
+  outline-offset: 2px;
 }
 
 @media (max-width: 1180px) {
@@ -503,7 +667,7 @@
   .admin-dashboard-lower-grid,
   .admin-dashboard-layout,
   .admin-post-detail,
-  .admin-webhook-grid {
+  .admin-contact-inbox {
     grid-template-columns: 1fr;
   }
 
@@ -540,7 +704,17 @@
   }
 
   .admin-list-meta,
+  .admin-contact-actions,
   .admin-actions {
     justify-content: flex-start;
+  }
+
+  .admin-contact-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-contact-actions label {
+    min-width: 0;
   }
 }

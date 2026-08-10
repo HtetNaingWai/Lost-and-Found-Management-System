@@ -79,7 +79,8 @@ class AdminController extends Controller
                 'found_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'found')->count(), 0),
                 'claims' => $this->safe(fn () => Claim::query()->count(), 0),
                 'contact_messages' => $this->safe(fn () => ContactMessage::query()->count(), 0),
-                'new_messages' => $this->safe(fn () => ContactMessage::query()->where('status', 'new')->count(), 0),
+                'new_messages' => $this->safe(fn () => ContactMessage::query()->whereIn('status', ['new', 'pending'])->count(), 0),
+                'pending_messages' => $this->safe(fn () => ContactMessage::query()->whereIn('status', ['new', 'pending'])->count(), 0),
                 'pending_items' => $this->safe(fn () => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'pending')->count(), 0),
                 'approved_items' => $this->safe(fn () => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'approved')->count(), 0),
                 'rejected_items' => $this->safe(fn () => CommunityPost::query()->whereIn('post_type', ['lost', 'found'])->where('status', 'rejected')->count(), 0),
@@ -557,7 +558,7 @@ class AdminController extends Controller
     public function updateContactMessage(Request $request, ContactMessage $contactMessage): JsonResponse
     {
         $validated = $request->validate([
-            'status' => ['required', 'in:new,read,replied'],
+            'status' => ['required', 'in:pending,in_progress,resolved'],
         ]);
 
         $contactMessage->update($validated);
@@ -594,6 +595,8 @@ class AdminController extends Controller
             'status' => $item->status,
             'description' => $item->description,
             'location' => $item->location,
+            'latitude' => $item->latitude !== null ? (float) $item->latitude : null,
+            'longitude' => $item->longitude !== null ? (float) $item->longitude : null,
             'item_date' => optional($item->item_date)?->format('Y-m-d'),
             'admin_note' => $item->admin_note,
             'created_at' => optional($item->created_at)?->toISOString(),
@@ -625,9 +628,18 @@ class AdminController extends Controller
             'phone' => $message->phone,
             'subject' => $message->subject,
             'message' => $message->message,
-            'status' => $message->status,
+            'status' => $this->normalizeContactStatus($message->status),
             'created_at' => optional($message->created_at)?->toISOString(),
         ];
+    }
+
+    protected function normalizeContactStatus(?string $status): string
+    {
+        return match ($status) {
+            'new' => 'pending',
+            'read', 'replied' => 'in_progress',
+            default => $status ?: 'pending',
+        };
     }
 
     protected function transformClaim(Claim $claim): array
@@ -661,6 +673,8 @@ class AdminController extends Controller
                 'status' => $communityPost->status,
                 'content' => $communityPost->content,
                 'location' => $communityPost->location,
+                'latitude' => $communityPost->latitude !== null ? (float) $communityPost->latitude : null,
+                'longitude' => $communityPost->longitude !== null ? (float) $communityPost->longitude : null,
                 'item_date' => optional($communityPost->item_date)?->format('Y-m-d'),
                 'returned_at' => optional($communityPost->returned_at)?->toISOString(),
                 'image_url' => $communityPost->image
@@ -684,6 +698,8 @@ class AdminController extends Controller
                 'type' => $linkedItem->type,
                 'status' => $linkedItem->status,
                 'location' => $linkedItem->location,
+                'latitude' => $linkedItem->latitude !== null ? (float) $linkedItem->latitude : null,
+                'longitude' => $linkedItem->longitude !== null ? (float) $linkedItem->longitude : null,
                 'item_date' => optional($linkedItem->item_date)?->format('Y-m-d'),
                 'image_url' => $linkedItem->image
                     ? asset('storage/'.$linkedItem->image)
@@ -709,6 +725,8 @@ class AdminController extends Controller
             'description' => $post->content,
             'content' => $post->content,
             'location' => $post->location,
+            'latitude' => $post->latitude !== null ? (float) $post->latitude : null,
+            'longitude' => $post->longitude !== null ? (float) $post->longitude : null,
             'item_date' => optional($post->item_date)?->format('Y-m-d'),
             'admin_note' => $post->admin_note,
             'created_at' => optional($post->created_at)?->toISOString(),

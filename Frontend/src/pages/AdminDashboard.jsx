@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import BrandMark from '../components/BrandMark'
+import CommunityMap from '../components/CommunityMap'
 import Icon from '../components/Icon'
 import { apiRequest } from '../services/api'
 import { formatDate } from '../utils/formatDate'
@@ -14,7 +15,6 @@ const sidebarItems = [
   { key: 'claims', label: 'Claims', icon: 'clipboard' },
   { key: 'contact', label: 'Contact Messages', icon: 'mail' },
   { key: 'notifications', label: 'Notifications', icon: 'bell' },
-  { key: 'settings', label: 'Settings', icon: 'settings' },
 ]
 
 const emptyOverview = {
@@ -27,6 +27,19 @@ const emptyOverview = {
   recent_contact_messages: [],
 }
 
+const contactStatusOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved', label: 'Resolved' },
+]
+
+const contactStatusLabels = {
+  pending: 'Pending',
+  in_progress: 'In Progress',
+  resolved: 'Resolved',
+}
+
 const routeSectionMap = {
   '/admin': 'overview',
   '/admin/pending-posts': 'pending',
@@ -36,8 +49,6 @@ const routeSectionMap = {
   '/admin/claims': 'claims',
   '/admin/contact-messages': 'contact',
   '/admin/notifications': 'notifications',
-  '/admin/settings': 'settings',
-  '/admin/profile': 'settings',
 }
 
 const sectionRouteMap = {
@@ -49,7 +60,6 @@ const sectionRouteMap = {
   claims: '/admin/claims',
   contact: '/admin/contact-messages',
   notifications: '/admin/notifications',
-  settings: '/admin/settings',
 }
 
 function AdminDashboard({ user, token, onLogout }) {
@@ -65,18 +75,11 @@ function AdminDashboard({ user, token, onLogout }) {
   const [feedback, setFeedback] = useState('')
   const [savingPostId, setSavingPostId] = useState(null)
   const [savingClaimId, setSavingClaimId] = useState(null)
+  const [savingContactId, setSavingContactId] = useState(null)
   const [selectedPost, setSelectedPost] = useState(null)
-  const [webhookEndpoints, setWebhookEndpoints] = useState([])
-  const [supportedWebhookEvents, setSupportedWebhookEvents] = useState([])
-  const [loadingWebhooks, setLoadingWebhooks] = useState(false)
-  const [savingWebhook, setSavingWebhook] = useState(false)
-  const [selectedWebhookId, setSelectedWebhookId] = useState(null)
-  const [webhookForm, setWebhookForm] = useState({
-    name: '',
-    url: '',
-    secret: '',
-    events: [],
-  })
+  const [selectedContactId, setSelectedContactId] = useState(null)
+  const [contactSearch, setContactSearch] = useState('')
+  const [contactStatusFilter, setContactStatusFilter] = useState('all')
 
   const activeSection = routeSectionMap[location.pathname] ?? 'overview'
 
@@ -183,30 +186,6 @@ function AdminDashboard({ user, token, onLogout }) {
     }
   }, [token])
 
-  const loadWebhooks = async ({ silent = false } = {}) => {
-    if (!token) return
-
-    if (!silent) {
-      setLoadingWebhooks(true)
-    }
-
-    try {
-      const payload = await apiRequest('/admin/webhooks', { token })
-      setSupportedWebhookEvents(payload.supported_events ?? [])
-      setWebhookEndpoints(payload.endpoints ?? [])
-    } catch (requestError) {
-      setFeedback(requestError.payload?.message ?? 'Failed to load webhook endpoints.')
-    } finally {
-      if (!silent) {
-        setLoadingWebhooks(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    void loadWebhooks()
-  }, [token])
-
   const pendingPosts = useMemo(
     () => overview.pending_posts ?? allPosts.filter((post) => post.status === 'pending'),
     [allPosts, overview.pending_posts],
@@ -299,6 +278,39 @@ function AdminDashboard({ user, token, onLogout }) {
     ]
   }, [claims, overview.recent_users, overview.stats])
 
+  const filteredContactMessages = useMemo(() => {
+    const query = contactSearch.trim().toLowerCase()
+
+    return contactMessages.filter((message) => {
+      const matchesStatus = contactStatusFilter === 'all' || message.status === contactStatusFilter
+      const matchesSearch = !query || [
+        message.name,
+        message.email,
+        message.subject,
+        message.message,
+      ].some((value) => String(value ?? '').toLowerCase().includes(query))
+
+      return matchesStatus && matchesSearch
+    })
+  }, [contactMessages, contactSearch, contactStatusFilter])
+
+  const selectedContactMessage = useMemo(() => (
+    filteredContactMessages.find((message) => message.id === selectedContactId)
+    ?? filteredContactMessages[0]
+    ?? null
+  ), [filteredContactMessages, selectedContactId])
+
+  useEffect(() => {
+    if (!selectedContactMessage) {
+      setSelectedContactId(null)
+      return
+    }
+
+    if (selectedContactId !== selectedContactMessage.id) {
+      setSelectedContactId(selectedContactMessage.id)
+    }
+  }, [selectedContactId, selectedContactMessage])
+
   const handlePostUpdate = async (postId, status) => {
     setSavingPostId(postId)
     setFeedback('')
@@ -368,6 +380,33 @@ function AdminDashboard({ user, token, onLogout }) {
       setFeedback(requestError.payload?.message ?? `Failed to ${status} claim.`)
     } finally {
       setSavingClaimId(null)
+    }
+  }
+
+  const handleContactMessageUpdate = async (messageId, status) => {
+    setSavingContactId(messageId)
+    setFeedback('')
+
+    try {
+      const payload = await apiRequest(`/admin/contact-messages/${messageId}`, {
+        method: 'PATCH',
+        token,
+        body: { status },
+      })
+
+      const updatedMessage = payload.contact_message
+      setContactMessages((current) =>
+        current.map((message) => (
+          message.id === messageId ? updatedMessage : message
+        )),
+      )
+      setSelectedContactId(messageId)
+      setFeedback(payload.message ?? 'Contact message updated successfully.')
+      await loadDashboard({ silent: true })
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? 'Failed to update contact message.')
+    } finally {
+      setSavingContactId(null)
     }
   }
 
@@ -644,35 +683,118 @@ function AdminDashboard({ user, token, onLogout }) {
   )
 
   const renderContactMessages = () => (
-    <section className="dashboard-panel admin-dashboard-panel">
+    <section className="dashboard-panel admin-dashboard-panel admin-contact-inbox-panel">
       <div className="section-panel-heading">
         <h2>Contact Messages</h2>
-        <p>Public inquiries and support requests from the website.</p>
+        <p>Review support requests, triage their status, and resolve completed conversations.</p>
       </div>
 
-      {contactMessages.length ? (
-        <div className="admin-card-grid">
-          {contactMessages.map((message) => (
-            <article className="admin-message-card admin-list-item" key={message.id}>
-              <div>
-                <strong>{message.subject || 'General message'}</strong>
-                <p>{message.name} • {message.email}</p>
-                <p className="admin-message-body">{message.message}</p>
+      <div className="admin-contact-inbox">
+        <aside className="admin-contact-list-pane">
+          <div className="admin-contact-controls">
+            <label className="admin-contact-search">
+              <Icon name="search" />
+              <input
+                type="search"
+                value={contactSearch}
+                onChange={(event) => setContactSearch(event.target.value)}
+                placeholder="Search messages..."
+              />
+            </label>
+            <select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)}>
+              {contactStatusOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="admin-contact-list">
+            {filteredContactMessages.length > 0 ? (
+              filteredContactMessages.map((message) => (
+                <button
+                  type="button"
+                  key={message.id}
+                  className={`admin-contact-list-item${selectedContactMessage?.id === message.id ? ' is-active' : ''}`}
+                  onClick={() => setSelectedContactId(message.id)}
+                >
+                  <span className={`admin-contact-status-dot admin-contact-status-${message.status}`} />
+                  <span className="admin-contact-list-copy">
+                    <strong>{message.subject || 'General support request'}</strong>
+                    <small>{message.name} • {message.email}</small>
+                    <span>{message.message}</span>
+                  </span>
+                  <small>{formatDate(message.created_at, { month: 'short', day: 'numeric' })}</small>
+                </button>
+              ))
+            ) : (
+              renderEmpty('No contact messages match your filters.', 'mail')
+            )}
+          </div>
+        </aside>
+
+        <section className="admin-contact-detail-pane">
+          {selectedContactMessage ? (
+            <>
+              <div className="admin-contact-detail-top">
+                <div>
+                  <span className={`badge badge-status admin-status-badge admin-status-${selectedContactMessage.status}`}>
+                    {contactStatusLabels[selectedContactMessage.status] ?? selectedContactMessage.status}
+                  </span>
+                  <h3>{selectedContactMessage.subject || 'General support request'}</h3>
+                  <p>{formatDate(selectedContactMessage.created_at, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}</p>
+                </div>
               </div>
 
-              <div className="admin-list-meta">
-                <span className={`badge badge-status admin-status-badge admin-status-${message.status}`}>
-                  {message.status}
+              <div className="admin-contact-user-card">
+                <span className="profile-avatar profile-avatar-small">
+                  {selectedContactMessage.name?.charAt(0).toUpperCase() || '?'}
                 </span>
-                <span>{message.phone || 'No phone'}</span>
-                <span>{formatDate(message.created_at)}</span>
+                <div>
+                  <strong>{selectedContactMessage.name}</strong>
+                  <p>{selectedContactMessage.email}</p>
+                </div>
               </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        renderEmpty('No contact messages yet.', 'mail')
-      )}
+
+              <div className="admin-contact-message-body">
+                <strong>Message</strong>
+                <p>{selectedContactMessage.message}</p>
+              </div>
+
+              <div className="admin-contact-actions">
+                <label>
+                  <span>Status</span>
+                  <select
+                    value={selectedContactMessage.status}
+                    disabled={savingContactId === selectedContactMessage.id}
+                    onChange={(event) => void handleContactMessageUpdate(selectedContactMessage.id, event.target.value)}
+                  >
+                    {contactStatusOptions.filter((option) => option.value !== 'all').map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  className="quick-action-button"
+                  disabled={savingContactId === selectedContactMessage.id || selectedContactMessage.status === 'resolved'}
+                  onClick={() => void handleContactMessageUpdate(selectedContactMessage.id, 'resolved')}
+                >
+                  {savingContactId === selectedContactMessage.id ? 'Saving...' : 'Mark as Resolved'}
+                </button>
+              </div>
+            </>
+          ) : (
+            renderEmpty('Select a message to view details.', 'mail')
+          )}
+        </section>
+      </div>
     </section>
   )
 
@@ -701,260 +823,6 @@ function AdminDashboard({ user, token, onLogout }) {
       ) : (
         renderEmpty('No notifications available yet.', 'bell')
       )}
-    </section>
-  )
-
-  const handleWebhookFieldChange = (field, value) => {
-    setWebhookForm((current) => ({ ...current, [field]: value }))
-  }
-
-  const handleWebhookEventToggle = (eventName) => {
-    setWebhookForm((current) => ({
-      ...current,
-      events: current.events.includes(eventName)
-        ? current.events.filter((entry) => entry !== eventName)
-        : [...current.events, eventName],
-    }))
-  }
-
-  const handleWebhookSubmit = async (event) => {
-    event.preventDefault()
-    setSavingWebhook(true)
-    setFeedback('')
-
-    const method = selectedWebhookId ? 'PATCH' : 'POST'
-    const path = selectedWebhookId ? `/admin/webhooks/${selectedWebhookId}` : '/admin/webhooks'
-
-    try {
-      const payload = await apiRequest(path, {
-        method,
-        token,
-        body: webhookForm,
-      })
-
-      setFeedback(payload.message ?? 'Webhook saved successfully.')
-      setSelectedWebhookId(null)
-      setWebhookForm({
-        name: '',
-        url: '',
-        secret: '',
-        events: [],
-      })
-      await loadWebhooks({ silent: true })
-    } catch (requestError) {
-      setFeedback(requestError.payload?.message ?? 'Failed to save webhook endpoint.')
-    } finally {
-      setSavingWebhook(false)
-    }
-  }
-
-  const handleEditWebhook = (endpoint) => {
-    setSelectedWebhookId(endpoint.id)
-    setWebhookForm({
-      name: endpoint.name,
-      url: endpoint.url,
-      secret: endpoint.secret,
-      events: endpoint.events ?? [],
-    })
-  }
-
-  const handleDeleteWebhook = async (endpointId) => {
-    if (!window.confirm('Delete this webhook endpoint?')) return
-
-    setFeedback('')
-
-    try {
-      const payload = await apiRequest(`/admin/webhooks/${endpointId}`, {
-        method: 'DELETE',
-        token,
-      })
-      setFeedback(payload.message ?? 'Webhook deleted successfully.')
-      if (selectedWebhookId === endpointId) {
-        setSelectedWebhookId(null)
-        setWebhookForm({
-          name: '',
-          url: '',
-          secret: '',
-          events: [],
-        })
-      }
-      await loadWebhooks({ silent: true })
-    } catch (requestError) {
-      setFeedback(requestError.payload?.message ?? 'Failed to delete webhook endpoint.')
-    }
-  }
-
-  const handleToggleWebhook = async (endpoint) => {
-    setFeedback('')
-
-    try {
-      const payload = await apiRequest(`/admin/webhooks/${endpoint.id}`, {
-        method: 'PATCH',
-        token,
-        body: {
-          status: endpoint.status === 'active' ? 'inactive' : 'active',
-        },
-      })
-      setFeedback(payload.message ?? 'Webhook updated successfully.')
-      await loadWebhooks({ silent: true })
-    } catch (requestError) {
-      setFeedback(requestError.payload?.message ?? 'Failed to update webhook status.')
-    }
-  }
-
-  const handleTestWebhook = async (endpointId) => {
-    setFeedback('')
-
-    try {
-      const payload = await apiRequest(`/admin/webhooks/${endpointId}/test`, {
-        method: 'POST',
-        token,
-      })
-      setFeedback(payload.message ?? 'Test webhook queued successfully.')
-      await loadWebhooks({ silent: true })
-    } catch (requestError) {
-      setFeedback(requestError.payload?.message ?? 'Failed to send test webhook.')
-    }
-  }
-
-  const renderSettings = () => (
-    <section className="dashboard-panel admin-dashboard-panel">
-      <div className="section-panel-heading">
-        <h2>Settings</h2>
-        <p>Manage outbound webhook endpoints and delivery subscriptions.</p>
-      </div>
-
-      <div className="admin-webhook-grid">
-        <section className="simple-info-card">
-          <div className="section-panel-heading">
-            <h2>{selectedWebhookId ? 'Edit Webhook Endpoint' : 'Create Webhook Endpoint'}</h2>
-            <p>Configure the destination URL, secret, and event subscriptions.</p>
-          </div>
-
-          <form className="profile-form" onSubmit={handleWebhookSubmit}>
-            <div className="profile-form-grid">
-              <label className="profile-form-field">
-                <span>Name</span>
-                <input
-                  value={webhookForm.name}
-                  onChange={(event) => handleWebhookFieldChange('name', event.target.value)}
-                  placeholder="CRM Integration"
-                />
-              </label>
-              <label className="profile-form-field">
-                <span>URL</span>
-                <input
-                  value={webhookForm.url}
-                  onChange={(event) => handleWebhookFieldChange('url', event.target.value)}
-                  placeholder="https://example.com/webhooks/findit"
-                />
-              </label>
-              <label className="profile-form-field profile-form-field-full">
-                <span>Secret</span>
-                <input
-                  value={webhookForm.secret}
-                  onChange={(event) => handleWebhookFieldChange('secret', event.target.value)}
-                  placeholder="Leave as-is to keep the current secret"
-                />
-              </label>
-            </div>
-
-            <div className="admin-webhook-events">
-              {supportedWebhookEvents.map((eventName) => (
-                <label className="admin-webhook-event-option" key={eventName}>
-                  <input
-                    type="checkbox"
-                    checked={webhookForm.events.includes(eventName)}
-                    onChange={() => handleWebhookEventToggle(eventName)}
-                  />
-                  <span>{eventName}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="profile-form-actions">
-              {selectedWebhookId ? (
-                <button
-                  type="button"
-                  className="secondary-action-button"
-                  onClick={() => {
-                    setSelectedWebhookId(null)
-                    setWebhookForm({
-                      name: '',
-                      url: '',
-                      secret: '',
-                      events: [],
-                    })
-                  }}
-                >
-                  Cancel Edit
-                </button>
-              ) : null}
-              <button type="submit" className="quick-action-button" disabled={savingWebhook}>
-                {savingWebhook ? 'Saving...' : selectedWebhookId ? 'Save Changes' : 'Create Endpoint'}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section className="simple-info-card">
-          <div className="section-panel-heading">
-            <h2>Webhook Endpoints</h2>
-            <p>Review status, recent deliveries, and test each endpoint.</p>
-          </div>
-
-          {loadingWebhooks ? (
-            <div className="settings-note">Loading webhook endpoints...</div>
-          ) : webhookEndpoints.length > 0 ? (
-            <div className="admin-list admin-webhook-list">
-              {webhookEndpoints.map((endpoint) => (
-                <article className="admin-list-item admin-webhook-item" key={endpoint.id}>
-                  <div className="admin-webhook-copy">
-                    <strong>{endpoint.name}</strong>
-                    <p>{endpoint.url}</p>
-                    <p>Events: {(endpoint.events ?? []).join(', ')}</p>
-                    <p>Secret: {endpoint.secret}</p>
-                    {endpoint.deliveries?.length ? (
-                      <div className="admin-webhook-deliveries">
-                        {endpoint.deliveries.map((delivery) => (
-                          <div key={delivery.id} className="admin-webhook-delivery">
-                            <strong>{delivery.event_name}</strong>
-                            <span>
-                              {delivery.response_status ? `HTTP ${delivery.response_status}` : 'Queued'}
-                              {' • '}
-                              {delivery.failed_at ? 'Failed' : delivery.delivered_at ? 'Delivered' : 'Pending'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="admin-actions">
-                    <span className={`badge badge-status admin-status-badge admin-status-${endpoint.status}`}>
-                      {endpoint.status}
-                    </span>
-                    <button type="button" className="secondary-action-button admin-inline-button" onClick={() => handleEditWebhook(endpoint)}>
-                      Edit
-                    </button>
-                    <button type="button" className="secondary-action-button admin-inline-button" onClick={() => void handleToggleWebhook(endpoint)}>
-                      {endpoint.status === 'active' ? 'Disable' : 'Enable'}
-                    </button>
-                    <button type="button" className="secondary-action-button admin-inline-button" onClick={() => void handleTestWebhook(endpoint.id)}>
-                      Send Test
-                    </button>
-                    <button type="button" className="secondary-action-button admin-inline-button admin-reject-button" onClick={() => void handleDeleteWebhook(endpoint.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            renderEmpty('No webhook endpoints configured yet.', 'settings')
-          )}
-        </section>
-      </div>
     </section>
   )
 
@@ -1018,6 +886,19 @@ function AdminDashboard({ user, token, onLogout }) {
                 <p>{selectedPost.admin_note || 'No admin note yet.'}</p>
               </div>
             </div>
+
+            {selectedPost.latitude !== null && selectedPost.longitude !== null ? (
+              <CommunityMap
+                posts={[selectedPost]}
+                onViewDetails={() => {}}
+                title="Saved Item Location"
+                subtitle={selectedPost.location || 'Selected map position'}
+                eyebrow="Map preview"
+                showControls={false}
+                compact
+                approvedOnly={false}
+              />
+            ) : null}
 
             {selectedPost.status === 'pending' ? (
               <div className="admin-actions">
@@ -1085,8 +966,6 @@ function AdminDashboard({ user, token, onLogout }) {
         return renderContactMessages()
       case 'notifications':
         return renderNotifications()
-      case 'settings':
-        return renderSettings()
       case 'overview':
       default:
         return renderOverview()

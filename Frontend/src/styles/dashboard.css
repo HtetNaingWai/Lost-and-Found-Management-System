@@ -403,6 +403,256 @@
   gap: 24px;
 }
 
+.items-discovery-panel {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.items-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.items-search-box,
+.items-filter-button {
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #6b7280;
+}
+
+.items-search-box {
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.items-search-box svg,
+.items-filter-button svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  fill: currentColor;
+}
+
+.items-search-box input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1f2937;
+  font-size: 15px;
+}
+
+.items-search-box input::placeholder {
+  color: #9ca3af;
+}
+
+.items-filter-wrap {
+  position: relative;
+}
+
+.items-filter-button {
+  gap: 10px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.items-filter-button:hover,
+.items-filter-button.is-active {
+  border-color: #d1d5db;
+  background: #f8f9f7;
+  color: #1f2937;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.items-filter-button small {
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.items-filter-popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 20;
+  width: min(92vw, 420px);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.14);
+}
+
+.items-filter-popover-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.items-filter-popover-heading strong {
+  color: #1f2937;
+  font-size: 16px;
+}
+
+.items-filter-popover-heading p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.items-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.items-filter-field {
+  display: grid;
+  gap: 7px;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.items-filter-field input,
+.items-filter-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1f2937;
+  font: inherit;
+  font-weight: 600;
+  outline: 0;
+}
+
+.items-filter-field input:focus,
+.items-filter-field select:focus {
+  border-color: #9ca3af;
+  box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.08);
+}
+
+.items-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.items-results-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.items-results-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.items-results-summary strong {
+  color: #1f2937;
+}
+
+.items-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f8f9f7;
+}
+
+.items-view-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.items-view-toggle-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.items-view-toggle-button.is-active {
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+}
+
+.items-view-toggle-button:not(.is-active):hover {
+  color: #1f2937;
+}
+
+.items-empty-state {
+  margin-top: 24px;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  text-align: center;
+}
+
+.items-empty-state strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #1f2937;
+}
+
+.items-empty-state p {
+  margin: 0;
+  color: #6b7280;
+}
+
 .recent-item-card {
   overflow: hidden;
   border-radius: 20px;
@@ -600,3 +850,90 @@
   margin-bottom: 10px;
 }
 
+.contact-support-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.contact-support-card,
+.contact-form-card {
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: var(--shadow-card);
+}
+
+.contact-support-card {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.contact-support-icon {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.contact-support-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.contact-support-card h2,
+.contact-support-card p,
+.contact-support-details strong,
+.contact-support-details span {
+  margin: 0;
+}
+
+.contact-support-card h2 {
+  color: #111827;
+  font-size: 24px;
+}
+
+.contact-support-card p,
+.contact-support-details span {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.contact-support-details {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.contact-support-details div {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.contact-support-details strong {
+  color: #111827;
+  font-size: 13px;
+}
+
+.contact-form-card {
+  padding: 24px;
+}
+
+.contact-form textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+@media (max-width: 900px) {
+  .contact-support-layout {
+    grid-template-columns: 1fr;
+  }
+}

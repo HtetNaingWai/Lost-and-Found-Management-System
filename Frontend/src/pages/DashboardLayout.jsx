@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import DashboardNavbar from '../components/DashboardNavbar'
 import Icon from '../components/Icon'
 import CommunityPage from './CommunityPage'
+import CommunityMap from '../components/CommunityMap'
+import LocationPicker from '../components/LocationPicker'
 import PostDetailModal from '../components/PostDetailModal'
 import {
   dashboardMenuItems,
@@ -32,9 +34,122 @@ function PageShell({ title, subtitle, children }) {
   )
 }
 
+const ITEM_FILTER_CATEGORIES = [
+  'Documents',
+  'Electronics',
+  'Clothing',
+  'Bags',
+  'Keys',
+  'Accessories',
+  'Others',
+]
+
+function normalizeItemValue(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitClaim, submittingClaim }) {
   const [selectedPost, setSelectedPost] = useState(null)
-  const filtered = items.filter((item) => (item.post_type ?? item.type)?.toLowerCase() === type)
+  const [searchValue, setSearchValue] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [viewMode, setViewMode] = useState('list')
+  const [draftFilters, setDraftFilters] = useState({
+    itemType: type,
+    category: '',
+    location: '',
+    date: '',
+  })
+  const [activeFilters, setActiveFilters] = useState({
+    category: '',
+    location: '',
+    date: '',
+  })
+  const filterRef = useRef(null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    setDraftFilters((current) => ({ ...current, itemType: type }))
+  }, [type])
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!filterRef.current?.contains(event.target)) {
+        setFiltersOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const baseItems = useMemo(
+    () => items.filter((item) => normalizeItemValue(item.post_type ?? item.type) === type),
+    [items, type],
+  )
+
+  const filtered = useMemo(() => {
+    const query = normalizeItemValue(searchValue)
+    const category = normalizeItemValue(activeFilters.category)
+    const location = normalizeItemValue(activeFilters.location)
+    const date = activeFilters.date
+
+    return baseItems.filter((item) => {
+      const title = normalizeItemValue(item.title)
+      const description = normalizeItemValue(item.content ?? item.description)
+      const categoryName = normalizeItemValue(item.category?.name)
+      const itemLocation = normalizeItemValue(item.location)
+      const itemDate = String(item.item_date || item.date || '')
+
+      const matchesSearch = !query || title.includes(query) || description.includes(query)
+      const matchesCategory = !category || categoryName === category
+      const matchesLocation = !location || itemLocation.includes(location)
+      const matchesDate = !date || itemDate === date
+
+      return matchesSearch && matchesCategory && matchesLocation && matchesDate
+    })
+  }, [activeFilters, baseItems, searchValue])
+
+  const activeFilterCount = [
+    activeFilters.category,
+    activeFilters.location,
+    activeFilters.date,
+  ].filter(Boolean).length
+
+  const handleDraftChange = (event) => {
+    const { name, value } = event.target
+    setDraftFilters((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleApplyFilters = () => {
+    setActiveFilters({
+      category: draftFilters.category,
+      location: draftFilters.location,
+      date: draftFilters.date,
+    })
+    setFiltersOpen(false)
+
+    if (draftFilters.itemType !== type) {
+      navigate(draftFilters.itemType === 'lost' ? '/lost-items' : '/found-items')
+    }
+  }
+
+  const handleClearFilters = () => {
+    const resetFilters = {
+      itemType: type,
+      category: '',
+      location: '',
+      date: '',
+    }
+
+    setSearchValue('')
+    setDraftFilters(resetFilters)
+    setActiveFilters({
+      category: '',
+      location: '',
+      date: '',
+    })
+    setFiltersOpen(false)
+  }
 
   return (
     <>
@@ -42,48 +157,178 @@ function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitC
         title={type === 'lost' ? 'Lost Items' : 'Found Items'}
         subtitle={`Showing approved ${type} item listings visible to users.`}
       >
-        <div className="recent-items-grid">
-          {filtered.map((item) => (
-            <article
-              className="recent-item-card recent-item-card-interactive"
-              key={`${item.id}-${item.title}`}
-              onClick={() => setSelectedPost(item)}
-            >
-              <div className="recent-item-image-wrap">
-                {item.image_url || item.image ? (
-                  <img src={item.image_url || item.image} alt={item.title} />
-                ) : (
-                  <div className="recent-item-image-placeholder">
-                    <Icon name={type === 'lost' ? 'search' : 'inventory'} />
+        <section className="items-discovery-panel" aria-label={`${type} item search and filters`}>
+          <div className="items-search-row">
+            <label className="items-search-box">
+              <Icon name="search" />
+              <input
+                type="search"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+                placeholder="Search lost or found items..."
+                aria-label="Search lost or found items"
+              />
+            </label>
+
+            <div className="items-filter-wrap" ref={filterRef}>
+              <button
+                type="button"
+                className={`items-filter-button${filtersOpen ? ' is-active' : ''}`}
+                onClick={() => setFiltersOpen((current) => !current)}
+                aria-expanded={filtersOpen}
+              >
+                <Icon name="sliders" />
+                <span>Filters</span>
+                {activeFilterCount > 0 ? <small>{activeFilterCount}</small> : null}
+              </button>
+
+              {filtersOpen ? (
+                <div className="items-filter-popover">
+                  <div className="items-filter-popover-heading">
+                    <strong>Filter Items</strong>
+                    <p>Refine listings and map markers.</p>
                   </div>
-                )}
-                <div className="recent-item-hover">
-                  <span className="quick-action-button recent-item-hover-button">View Details</span>
+
+                  <div className="items-filter-grid">
+                    <label className="items-filter-field">
+                      <span>Item Type</span>
+                      <select name="itemType" value={draftFilters.itemType} onChange={handleDraftChange}>
+                        <option value="lost">Lost</option>
+                        <option value="found">Found</option>
+                      </select>
+                    </label>
+
+                    <label className="items-filter-field">
+                      <span>Category</span>
+                      <select name="category" value={draftFilters.category} onChange={handleDraftChange}>
+                        <option value="">All categories</option>
+                        {ITEM_FILTER_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="items-filter-field">
+                      <span>Location</span>
+                      <input
+                        name="location"
+                        value={draftFilters.location}
+                        onChange={handleDraftChange}
+                        placeholder="City, street, or area"
+                      />
+                    </label>
+
+                    <label className="items-filter-field">
+                      <span>Date</span>
+                      <input name="date" type="date" value={draftFilters.date} onChange={handleDraftChange} />
+                    </label>
+                  </div>
+
+                  <div className="items-filter-actions">
+                    <button type="button" className="secondary-action-button" onClick={handleClearFilters}>
+                      Clear Filters
+                    </button>
+                    <button type="button" className="quick-action-button" onClick={handleApplyFilters}>
+                      Apply Filters
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="recent-item-body">
-                <div className="recent-item-badges">
-                  <span className={`badge badge-type ${type === 'lost' ? 'badge-lost' : 'badge-found'}`}>
-                    {(item.post_type ?? item.type).charAt(0).toUpperCase() + (item.post_type ?? item.type).slice(1)}
-                  </span>
-                  <span className={`badge badge-status badge-${item.status.toLowerCase()}`}>
-                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                  </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="items-results-summary">
+            <span className="items-results-count">
+              <strong>{filtered.length}</strong>
+              <span>{filtered.length === 1 ? 'result' : 'results'} found</span>
+            </span>
+
+            <div className="items-view-toggle" role="group" aria-label="Choose list or map view">
+              <button
+                type="button"
+                className={`items-view-toggle-button${viewMode === 'list' ? ' is-active' : ''}`}
+                onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+              >
+                <Icon name="grid" />
+                <span>List</span>
+              </button>
+              <button
+                type="button"
+                className={`items-view-toggle-button${viewMode === 'map' ? ' is-active' : ''}`}
+                onClick={() => setViewMode('map')}
+                aria-pressed={viewMode === 'map'}
+              >
+                <Icon name="pin" />
+                <span>Map</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {viewMode === 'map' ? (
+          <CommunityMap
+            posts={filtered}
+            onViewDetails={setSelectedPost}
+            showControls={false}
+            compact
+            eyebrow={`${type === 'lost' ? 'Lost' : 'Found'} item locations`}
+            title={`${type === 'lost' ? 'Lost' : 'Found'} Items Map`}
+            subtitle="Map markers update with your search and filters."
+          />
+        ) : (
+          <div className="recent-items-grid">
+            {filtered.map((item) => (
+              <article
+                className="recent-item-card recent-item-card-interactive"
+                key={`${item.id}-${item.title}`}
+                onClick={() => setSelectedPost(item)}
+              >
+                <div className="recent-item-image-wrap">
+                  {item.image_url || item.image ? (
+                    <img src={item.image_url || item.image} alt={item.title} />
+                  ) : (
+                    <div className="recent-item-image-placeholder">
+                      <Icon name={type === 'lost' ? 'search' : 'inventory'} />
+                    </div>
+                  )}
+                  <div className="recent-item-hover">
+                    <span className="quick-action-button recent-item-hover-button">View Details</span>
+                  </div>
                 </div>
-                <h3>{item.title}</h3>
-                <p className="recent-item-copy">{item.content ?? item.description}</p>
-                <p className="recent-item-meta">
-                  <Icon name="pin" />
-                  <span>{item.location}</span>
-                </p>
-                <p className="recent-item-date">{formatDate(item.item_date || item.date)}</p>
-                <p className="recent-item-submeta">
-                  {item.category?.name || 'General'} · Posted by {item.user?.name || 'Unknown user'}
-                </p>
-              </div>
-            </article>
-          ))}
-        </div>
+                <div className="recent-item-body">
+                  <div className="recent-item-badges">
+                    <span className={`badge badge-type ${type === 'lost' ? 'badge-lost' : 'badge-found'}`}>
+                      {(item.post_type ?? item.type).charAt(0).toUpperCase() + (item.post_type ?? item.type).slice(1)}
+                    </span>
+                    <span className={`badge badge-status badge-${item.status.toLowerCase()}`}>
+                      {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                    </span>
+                  </div>
+                  <h3>{item.title}</h3>
+                  <p className="recent-item-copy">{item.content ?? item.description}</p>
+                  <p className="recent-item-meta">
+                    <Icon name="pin" />
+                    <span>{item.location}</span>
+                  </p>
+                  <p className="recent-item-date">{formatDate(item.item_date || item.date)}</p>
+                  <p className="recent-item-submeta">
+                    {item.category?.name || 'General'} · Posted by {item.user?.name || 'Unknown user'}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {filtered.length === 0 ? (
+          <div className="items-empty-state">
+            <strong>No matching items found.</strong>
+            <p>Try adjusting your search keyword, category, location, or date filter.</p>
+          </div>
+        ) : null}
       </PageShell>
 
       <PostDetailModal
@@ -108,6 +353,8 @@ function ReportItemsPage({ token, categories, myItems, onItemSubmitted }) {
     category_id: '',
     title: '',
     location: '',
+    latitude: '',
+    longitude: '',
     item_date: '',
     description: '',
   })
@@ -148,31 +395,41 @@ function ReportItemsPage({ token, categories, myItems, onItemSubmitted }) {
     setError('')
     setSuccess('')
 
+    if (!values.location.trim() || !values.latitude || !values.longitude) {
+      setError('Please select the item location on the map.')
+      setSubmitting(false)
+      return
+    }
+
     const formData = new FormData()
-    formData.append('type', selectedType)
+    formData.append('post_type', selectedType)
     formData.append('category_id', values.category_id)
     formData.append('title', values.title)
     formData.append('location', values.location)
+    formData.append('latitude', values.latitude)
+    formData.append('longitude', values.longitude)
     formData.append('item_date', values.item_date)
-    formData.append('description', values.description)
+    formData.append('content', values.description)
 
     if (imageFile) {
       formData.append('image', imageFile)
     }
 
     try {
-      const payload = await apiRequest('/items', {
+      const payload = await apiRequest('/community-posts', {
         method: 'POST',
         token,
         body: formData,
       })
 
-      onItemSubmitted(payload.item)
+      onItemSubmitted(payload.post)
       setSuccess(payload.message)
       setValues({
         category_id: '',
         title: '',
         location: '',
+        latitude: '',
+        longitude: '',
         item_date: '',
         description: '',
       })
@@ -235,10 +492,18 @@ function ReportItemsPage({ token, categories, myItems, onItemSubmitted }) {
               <span>Item Title</span>
               <input name="title" value={values.title} onChange={handleChange} />
             </label>
-            <label className="profile-form-field">
-              <span>Location</span>
-              <input name="location" value={values.location} onChange={handleChange} />
-            </label>
+            <LocationPicker
+              value={{
+                location: values.location,
+                latitude: values.latitude,
+                longitude: values.longitude,
+              }}
+              onChange={(nextLocation) => {
+                setValues((current) => ({ ...current, ...nextLocation }))
+                setError('')
+                setSuccess('')
+              }}
+            />
             <label className="profile-form-field">
               <span>Date</span>
               <input name="item_date" type="date" value={values.item_date} onChange={handleChange} />
@@ -310,7 +575,7 @@ function MessagesPage({
   conversations,
   activeConversation,
   messages,
-  contactUsers,
+  itemSources,
   onOpenConversation,
   onSendMessage,
   onTypingStateChange,
@@ -321,7 +586,10 @@ function MessagesPage({
   typingParticipantId,
 }) {
   const [draftMessage, setDraftMessage] = useState('')
+  const [conversationSearch, setConversationSearch] = useState('')
+  const [mobileThreadOpen, setMobileThreadOpen] = useState(Boolean(activeConversation))
   const typingTimeoutRef = useRef(null)
+  const threadEndRef = useRef(null)
 
   useEffect(() => {
     setDraftMessage('')
@@ -378,185 +646,547 @@ function MessagesPage({
     }, 1500)
   }
 
+  const filteredConversations = useMemo(() => {
+    const query = conversationSearch.trim().toLowerCase()
+
+    if (!query) return conversations
+
+    return conversations.filter((conversation) => {
+      const participant = conversation.participant
+      const latestMessage = conversation.latest_message?.message ?? ''
+
+      return (
+        participant?.name?.toLowerCase().includes(query)
+        || participant?.email?.toLowerCase().includes(query)
+        || latestMessage.toLowerCase().includes(query)
+      )
+    })
+  }, [conversationSearch, conversations])
+
+  const relatedItem = useMemo(() => {
+    if (!activeConversation?.participant?.id) return null
+
+    const messageItemId = [...messages]
+      .reverse()
+      .find((message) => message.item_id)?.item_id
+
+    if (messageItemId) {
+      const directMatch = itemSources.find((item) => Number(item.id) === Number(messageItemId))
+      if (directMatch) return directMatch
+    }
+
+    const participantId = activeConversation.participant.id
+    return itemSources.find((item) => item.user?.id === participantId) ?? null
+  }, [activeConversation, itemSources, messages])
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ block: 'end' })
+  }, [activeConversation?.participant?.id, loadingConversation, messages.length, typingParticipantId])
+
   return (
     <PageShell
       title="Messages"
       subtitle="Contact other community members and continue your item conversations."
     >
-      <div className="messages-layout">
-        <section className="dashboard-panel messages-sidebar">
-          <div className="section-panel-heading">
-            <h2>Inbox</h2>
-            <p>Your direct conversations with other users.</p>
-          </div>
+      <div className={`messages-layout${mobileThreadOpen ? ' is-thread-open' : ''}`}>
+        <ConversationList
+          conversations={filteredConversations}
+          totalConversations={conversations.length}
+          searchValue={conversationSearch}
+          onSearchChange={setConversationSearch}
+          activeParticipantId={activeConversation?.participant?.id}
+          onlineUserIds={onlineUserIds}
+          onOpenConversation={(participant) => {
+            setMobileThreadOpen(true)
+            onOpenConversation(participant)
+          }}
+        />
 
-          <div className="messages-conversation-list">
-            {conversations.length > 0 ? (
-              conversations.map((conversation) => {
-                const participant = conversation.participant
-                const latestMessage = conversation.latest_message
-                return (
-                  <button
-                    type="button"
-                    key={participant.id}
-                    className={`messages-conversation-item${activeConversation?.participant?.id === participant.id ? ' is-active' : ''}`}
-                    onClick={() => onOpenConversation(participant)}
-                  >
-                    <span className="profile-avatar">
-                      {participant.profile_image_url ? (
-                        <img src={participant.profile_image_url} alt={participant.name} />
-                      ) : (
-                        participant.name.charAt(0).toUpperCase()
-                      )}
-                    </span>
-                    <span className="messages-conversation-copy">
-                      <strong>{participant.name}</strong>
-                      <small>{latestMessage?.message || 'Start a new conversation'}</small>
-                      <span className={`messages-presence-text${onlineUserIds.includes(participant.id) ? ' is-online' : ''}`}>
-                        {onlineUserIds.includes(participant.id) ? 'Online' : 'Offline'}
-                      </span>
-                    </span>
-                    <span className="messages-conversation-meta">
-                      <span>
-                        {latestMessage?.created_at
-                          ? formatDate(latestMessage.created_at, { month: 'short', day: 'numeric' })
-                          : 'New'}
-                      </span>
-                      {conversation.unread_count > 0 ? (
-                        <span className="messages-unread-chip">{conversation.unread_count}</span>
-                      ) : null}
-                    </span>
-                  </button>
-                )
-              })
-            ) : (
-              <div className="settings-note">No conversations yet. Start by messaging a community member.</div>
-            )}
-          </div>
+        <ChatWindow
+          user={user}
+          activeConversation={activeConversation}
+          messages={messages}
+          draftMessage={draftMessage}
+          onDraftChange={handleDraftChange}
+          onSubmit={handleSubmit}
+          onBack={() => setMobileThreadOpen(false)}
+          sendingMessage={sendingMessage}
+          loadingConversation={loadingConversation}
+          messageError={messageError}
+          onlineUserIds={onlineUserIds}
+          typingParticipantId={typingParticipantId}
+          relatedItem={relatedItem}
+          threadEndRef={threadEndRef}
+        />
 
-          <div className="section-panel-heading messages-suggested-heading">
-            <h2>People to Contact</h2>
-            <p>Start a conversation with members from the community feed.</p>
-          </div>
-          <div className="messages-contact-grid">
-            {contactUsers.map((contact) => (
-              <button
-                type="button"
-                key={contact.id}
-                className="messages-contact-card"
-                onClick={() => onOpenConversation(contact)}
-              >
-                <span className="profile-avatar">
-                  {contact.profile_image_url ? (
-                    <img src={contact.profile_image_url} alt={contact.name} />
-                  ) : (
-                    contact.name.charAt(0).toUpperCase()
-                  )}
-                </span>
-                <strong>{contact.name}</strong>
-                <small>{contact.email}</small>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="dashboard-panel messages-thread-panel">
-          {activeConversation ? (
-            <>
-              <div className="messages-thread-header">
-                <div className="messages-thread-user">
-                  <span className="profile-avatar">
-                    {activeConversation.participant.profile_image_url ? (
-                      <img src={activeConversation.participant.profile_image_url} alt={activeConversation.participant.name} />
-                    ) : (
-                      activeConversation.participant.name.charAt(0).toUpperCase()
-                    )}
-                  </span>
-                  <div>
-                    <strong>{activeConversation.participant.name}</strong>
-                    <p>
-                      {activeConversation.participant.email}
-                      {' • '}
-                      {onlineUserIds.includes(activeConversation.participant.id) ? 'Online' : 'Offline'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {messageError ? <p className="settings-feedback is-error">{messageError}</p> : null}
-
-              <div className="messages-thread-list">
-                {loadingConversation ? (
-                  <div className="settings-note">Loading conversation...</div>
-                ) : messages.length > 0 ? (
-                  messages.map((message) => {
-                    const isOwn = message.sender?.id === user.id
-                    return (
-                      <article
-                        className={`message-bubble${isOwn ? ' is-own' : ''}`}
-                        key={message.id}
-                      >
-                        <p>{message.message}</p>
-                        <span>{formatDate(message.created_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
-                      </article>
-                    )
-                  })
-                ) : (
-                  <div className="settings-note">No messages yet. Say hello to start the conversation.</div>
-                )}
-                {typingParticipantId === activeConversation.participant.id ? (
-                  <div className="messages-typing-indicator">Typing...</div>
-                ) : null}
-              </div>
-
-              <form className="messages-composer" onSubmit={handleSubmit}>
-                <textarea
-                  rows="3"
-                  placeholder={`Write a message to ${activeConversation.participant.name}...`}
-                  value={draftMessage}
-                  onChange={handleDraftChange}
-                />
-                <div className="messages-composer-actions">
-                  <button type="submit" className="quick-action-button" disabled={sendingMessage || !draftMessage.trim()}>
-                    {sendingMessage ? 'Sending...' : 'Send Message'}
-                  </button>
-                </div>
-              </form>
-            </>
-          ) : (
-            <div className="messages-empty-thread">
-              <h2>Select a conversation</h2>
-              <p>Choose a conversation from the inbox or start one with a community member.</p>
-            </div>
-          )}
-        </section>
+        <ItemDetailsSidebar relatedItem={relatedItem} />
       </div>
     </PageShell>
   )
 }
 
-function ContactPage() {
+function ConversationList({
+  conversations,
+  totalConversations,
+  searchValue,
+  onSearchChange,
+  activeParticipantId,
+  onlineUserIds,
+  onOpenConversation,
+}) {
   return (
-    <PageShell
-      title="Contact Us"
-      subtitle="Reach out to the FindIt team or submit a township support message."
-    >
-      <div className="contact-panel">
-        <div className="simple-info-card">
-          <h2>Community Support</h2>
-          <p>Email: support@findit.local</p>
-          <p>Phone: +95 9 123 456 789</p>
-          <p>Office Hours: Mon to Fri, 9:00 AM to 5:00 PM</p>
-        </div>
-        <div className="simple-info-card">
-          <h2>Contact Form</h2>
+    <section className="messages-conversation-panel">
+      <div className="messages-panel-heading">
+        <div>
+          <h2>Messages</h2>
           <p>
-            This page is ready for the next step where we connect the real contact
-            form to the backend `contact_messages` table.
+            {searchValue
+              ? `${conversations.length} of ${totalConversations} conversations`
+              : `${totalConversations} recent ${totalConversations === 1 ? 'conversation' : 'conversations'}`}
           </p>
         </div>
       </div>
+
+      <label className="messages-search-box">
+        <Icon name="search" />
+        <input
+          type="search"
+          value={searchValue}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Search conversations..."
+        />
+        {searchValue ? (
+          <button type="button" className="messages-search-clear" onClick={() => onSearchChange('')}>
+            <Icon name="close" />
+          </button>
+        ) : null}
+      </label>
+
+      <div className="messages-conversation-list">
+        {conversations.length > 0 ? (
+          conversations.map((conversation) => (
+            <ConversationItem
+              key={conversation.participant?.id}
+              conversation={conversation}
+              isActive={activeParticipantId === conversation.participant?.id}
+              isOnline={onlineUserIds.includes(conversation.participant?.id)}
+              onClick={() => onOpenConversation(conversation.participant)}
+            />
+          ))
+        ) : (
+          <div className="messages-empty-card">
+            <strong>No conversations found</strong>
+            <span>{searchValue ? 'Try another name or message keyword.' : 'Messages from item owners and claimants will appear here.'}</span>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ConversationItem({ conversation, isActive, isOnline, onClick }) {
+  const participant = conversation.participant
+  const latestMessage = conversation.latest_message
+
+  if (!participant) return null
+
+  return (
+    <button
+      type="button"
+      className={`messages-conversation-item${isActive ? ' is-active' : ''}`}
+      onClick={onClick}
+    >
+      <UserAvatar user={participant} isOnline={isOnline} />
+      <span className="messages-conversation-copy">
+        <span className="messages-conversation-topline">
+          <strong>{participant.name}</strong>
+          <small>{latestMessage?.created_at ? formatDate(latestMessage.created_at, { hour: 'numeric', minute: '2-digit' }) : 'New'}</small>
+        </span>
+        <span className="messages-preview">{latestMessage?.message || 'Start a new conversation'}</span>
+        <span className={`messages-presence-text${isOnline ? ' is-online' : ''}`}>
+          {isOnline ? 'Online' : 'Offline'}
+        </span>
+      </span>
+      {conversation.unread_count > 0 ? (
+        <span className="messages-unread-chip">{conversation.unread_count}</span>
+      ) : null}
+    </button>
+  )
+}
+
+function ChatWindow({
+  user,
+  activeConversation,
+  messages,
+  draftMessage,
+  onDraftChange,
+  onSubmit,
+  onBack,
+  sendingMessage,
+  loadingConversation,
+  messageError,
+  onlineUserIds,
+  typingParticipantId,
+  relatedItem,
+  threadEndRef,
+}) {
+  if (!activeConversation) {
+    return (
+      <section className="messages-chat-panel">
+        <div className="messages-empty-thread">
+          <span className="messages-empty-icon">
+            <Icon name="chat" />
+          </span>
+          <h2>Select a conversation</h2>
+          <p>Choose a recent conversation to continue talking about a lost or found item.</p>
+        </div>
+      </section>
+    )
+  }
+
+  const participant = activeConversation.participant
+  const isOnline = onlineUserIds.includes(participant.id)
+
+  return (
+    <section className="messages-chat-panel">
+      <ChatHeader
+        participant={participant}
+        isOnline={isOnline}
+        relatedItem={relatedItem}
+        onBack={onBack}
+      />
+
+      {messageError ? <p className="settings-feedback is-error messages-error">{messageError}</p> : null}
+
+      <div className="messages-thread-list">
+        {loadingConversation ? (
+          <MessagesSkeleton />
+        ) : messages.length > 0 ? (
+          messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              isOwn={message.sender?.id === user.id}
+            />
+          ))
+        ) : (
+          <div className="messages-empty-card">
+            <strong>No messages yet</strong>
+            <span>Send the first message and keep the item details clear.</span>
+          </div>
+        )}
+        {typingParticipantId === participant.id ? (
+          <div className="messages-typing-indicator">Typing...</div>
+        ) : null}
+        <span ref={threadEndRef} aria-hidden="true" />
+      </div>
+
+      <MessageComposer
+        participantName={participant.name}
+        draftMessage={draftMessage}
+        onDraftChange={onDraftChange}
+        onSubmit={onSubmit}
+        sendingMessage={sendingMessage}
+      />
+    </section>
+  )
+}
+
+function ChatHeader({ participant, isOnline, relatedItem, onBack }) {
+  const itemType = relatedItem?.post_type ?? relatedItem?.type
+
+  return (
+    <div className="messages-thread-header">
+      <button type="button" className="messages-mobile-back" onClick={onBack}>
+        <Icon name="arrowLeft" />
+      </button>
+      <UserAvatar user={participant} isOnline={isOnline} />
+      <div className="messages-thread-title">
+        <strong>{participant.name}</strong>
+        <span>{isOnline ? 'Online' : 'Offline'}</span>
+      </div>
+      <div className="messages-header-item">
+        <span>{itemType ? `${itemType.charAt(0).toUpperCase() + itemType.slice(1)} Item` : 'Item context'}</span>
+        <strong>{relatedItem?.title || 'No item linked yet'}</strong>
+      </div>
+    </div>
+  )
+}
+
+function MessageBubble({ message, isOwn }) {
+  return (
+    <article className={`message-bubble${isOwn ? ' is-own' : ''}`}>
+      <p>{message.message}</p>
+      <span>{formatDate(message.created_at, { hour: 'numeric', minute: '2-digit' })}</span>
+    </article>
+  )
+}
+
+function MessageComposer({
+  participantName,
+  draftMessage,
+  onDraftChange,
+  onSubmit,
+  sendingMessage,
+}) {
+  return (
+    <form className="messages-composer" onSubmit={onSubmit}>
+      <button type="button" className="messages-attachment-button" aria-label="Add attachment">
+        <Icon name="paperclip" />
+      </button>
+      <textarea
+        rows="1"
+        placeholder={`Type your message to ${participantName}...`}
+        value={draftMessage}
+        onChange={onDraftChange}
+      />
+      <button type="submit" className="messages-send-button" disabled={sendingMessage || !draftMessage.trim()}>
+        <Icon name="send" />
+        <span>{sendingMessage ? 'Sending' : 'Send'}</span>
+      </button>
+    </form>
+  )
+}
+
+function ItemDetailsSidebar({ relatedItem }) {
+  const itemType = relatedItem?.post_type ?? relatedItem?.type
+  const imageUrl = relatedItem?.image_url ?? relatedItem?.image
+
+  return (
+    <aside className="messages-item-panel">
+      <div className="messages-panel-heading">
+        <div>
+          <h2>Item Details</h2>
+          <p>Conversation context</p>
+        </div>
+      </div>
+
+      {relatedItem ? (
+        <>
+          <div className="messages-item-image">
+            {imageUrl ? (
+              <img src={imageUrl} alt={relatedItem.title} />
+            ) : (
+              <Icon name={itemType === 'lost' ? 'search' : 'inventory'} />
+            )}
+          </div>
+
+          <div className="messages-item-summary">
+            <span className={`badge badge-type ${itemType === 'lost' ? 'badge-lost' : 'badge-found'}`}>
+              {itemType || 'item'}
+            </span>
+            <h3>{relatedItem.title || 'Untitled item'}</h3>
+            <p>{relatedItem.content ?? relatedItem.description ?? 'No item description available.'}</p>
+          </div>
+
+          <div className="messages-item-facts">
+            <ItemFact label="Category" value={relatedItem.category?.name || 'General'} />
+            <ItemFact label="Location" value={relatedItem.location || 'Not provided'} />
+            <ItemFact label="Date" value={relatedItem.item_date ? formatDate(relatedItem.item_date) : 'Not provided'} />
+            <ItemFact label="Status" value={relatedItem.status || 'Pending'} />
+          </div>
+
+          <div className="messages-item-actions">
+            <button type="button" className="quick-action-button messages-sidebar-action">View Item</button>
+            <button type="button" className="secondary-action-button messages-sidebar-action">Mark as Returned</button>
+            <button type="button" className="secondary-action-button messages-sidebar-action">Report User</button>
+          </div>
+        </>
+      ) : (
+        <div className="messages-empty-card">
+          <strong>No item linked</strong>
+          <span>Open a conversation from an item post to show context here.</span>
+        </div>
+      )}
+    </aside>
+  )
+}
+
+function ItemFact({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function UserAvatar({ user, isOnline }) {
+  return (
+    <span className={`messages-avatar${isOnline ? ' is-online' : ''}`}>
+      {user.profile_image_url ? (
+        <img src={user.profile_image_url} alt={user.name} />
+      ) : (
+        user.name?.charAt(0).toUpperCase()
+      )}
+    </span>
+  )
+}
+
+function MessagesSkeleton() {
+  return (
+    <div className="messages-skeleton-list">
+      {[0, 1, 2, 3].map((item) => (
+        <span className={`messages-skeleton-row${item % 2 ? ' is-own' : ''}`} key={item} />
+      ))}
+    </div>
+  )
+}
+
+function ContactPage({ user, token }) {
+  return (
+    <PageShell
+      title="Contact Us"
+      subtitle="Send a support request to the FindIt team and track it through the admin support inbox."
+    >
+      <div className="contact-support-layout">
+        <section className="contact-support-card">
+          <span className="contact-support-icon">
+            <Icon name="mail" />
+          </span>
+          <h2>Community Support</h2>
+          <p>Use this channel for account issues, item reports, claims, and safety concerns.</p>
+          <div className="contact-support-details">
+            <div>
+              <strong>Email</strong>
+              <span>support@findit.local</span>
+            </div>
+            <div>
+              <strong>Phone</strong>
+              <span>+95 9 123 456 789</span>
+            </div>
+            <div>
+              <strong>Office Hours</strong>
+              <span>Mon to Fri, 9:00 AM to 5:00 PM</span>
+            </div>
+          </div>
+        </section>
+
+        <ContactForm user={user} token={token} />
+      </div>
     </PageShell>
+  )
+}
+
+function ContactForm({ user, token }) {
+  const [values, setValues] = useState({
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    subject: '',
+    message: '',
+  })
+  const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [success, setSuccess] = useState('')
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+    setValues((current) => ({ ...current, [name]: value }))
+    setErrors((current) => ({ ...current, [name]: '' }))
+    setSuccess('')
+  }
+
+  const validate = () => {
+    const nextErrors = {}
+
+    if (!values.name.trim()) nextErrors.name = 'Name is required.'
+    if (!values.email.trim()) {
+      nextErrors.email = 'Email is required.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
+      nextErrors.email = 'Enter a valid email address.'
+    }
+    if (!values.subject.trim()) nextErrors.subject = 'Subject is required.'
+    if (!values.message.trim()) nextErrors.message = 'Message is required.'
+
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setSuccess('')
+
+    if (!validate()) return
+
+    setSubmitting(true)
+
+    try {
+      const payload = await apiRequest('/contact-messages', {
+        method: 'POST',
+        token,
+        body: {
+          name: values.name.trim(),
+          email: values.email.trim(),
+          subject: values.subject.trim(),
+          message: values.message.trim(),
+        },
+      })
+
+      setSuccess(payload.message ?? 'Your support message was submitted successfully.')
+      setValues((current) => ({
+        ...current,
+        subject: '',
+        message: '',
+      }))
+    } catch (error) {
+      setErrors({
+        form: error.payload?.message ?? 'Failed to submit your support message.',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="contact-form-card">
+      <div className="section-panel-heading">
+        <h2>Send a Support Message</h2>
+        <p>The admin team will receive your request in the Contact Messages inbox.</p>
+      </div>
+
+      <form className="profile-form contact-form" onSubmit={handleSubmit}>
+        <div className="profile-form-grid">
+          <label className="profile-form-field">
+            <span>Name</span>
+            <input name="name" value={values.name} onChange={handleChange} />
+            {errors.name ? <small className="field-error">{errors.name}</small> : null}
+          </label>
+
+          <label className="profile-form-field">
+            <span>Email</span>
+            <input name="email" type="email" value={values.email} onChange={handleChange} />
+            {errors.email ? <small className="field-error">{errors.email}</small> : null}
+          </label>
+
+          <label className="profile-form-field profile-form-field-full">
+            <span>Subject</span>
+            <input name="subject" value={values.subject} onChange={handleChange} />
+            {errors.subject ? <small className="field-error">{errors.subject}</small> : null}
+          </label>
+
+          <label className="profile-form-field profile-form-field-full">
+            <span>Message</span>
+            <textarea
+              name="message"
+              rows="7"
+              value={values.message}
+              onChange={handleChange}
+              placeholder="Describe what happened and include any item, claim, or account details that can help."
+            />
+            {errors.message ? <small className="field-error">{errors.message}</small> : null}
+          </label>
+        </div>
+
+        {errors.form ? <p className="settings-feedback is-error">{errors.form}</p> : null}
+        {success ? <p className="settings-feedback is-success">{success}</p> : null}
+
+        <div className="profile-form-actions">
+          <button type="submit" className="quick-action-button" disabled={submitting}>
+            {submitting ? 'Sending...' : 'Submit Message'}
+          </button>
+        </div>
+      </form>
+    </section>
   )
 }
 
@@ -938,427 +1568,6 @@ function ProfilePage({ user, token, onUserUpdate }) {
   )
 }
 
-function AdminDashboardHome({ user, overview, onNavigate }) {
-  const adminStats = useMemo(
-    () => [
-      {
-        label: 'Registered Users',
-        value: overview?.stats?.total_users ?? 0,
-        description: 'Normal community members currently on the platform.',
-        icon: 'group',
-      },
-      {
-        label: 'Active Users',
-        value: overview?.stats?.active_users ?? 0,
-        description: 'Users who can access FindIt right now.',
-        icon: 'checkCircle',
-      },
-      {
-        label: 'Pending Items',
-        value: overview?.stats?.pending_items ?? 0,
-        description: 'Item reports waiting for admin review.',
-        icon: 'clock',
-      },
-      {
-        label: 'Approved Items',
-        value: overview?.stats?.approved_items ?? 0,
-        description: 'Items currently visible to the community.',
-        icon: 'shield',
-      },
-      {
-        label: 'Contact Messages',
-        value: overview?.stats?.contact_messages ?? 0,
-        description: 'Support and contact submissions received.',
-        icon: 'mail',
-      },
-      {
-        label: 'New Messages',
-        value: overview?.stats?.new_messages ?? 0,
-        description: 'Contact messages still awaiting a response.',
-        icon: 'chat',
-      },
-    ],
-    [overview],
-  )
-
-  return (
-    <>
-      <section className="dashboard-hero admin-hero">
-        <div className="container dashboard-hero-grid">
-          <div className="dashboard-hero-copy">
-            <p className="dashboard-kicker">Admin Control Center</p>
-            <h1>Welcome back, {user.name}</h1>
-            <p>
-              Review users, moderate submitted items, and manage community contact messages.
-            </p>
-          </div>
-
-          <div className="quick-actions-card">
-            <h2>Admin Actions</h2>
-            <div className="quick-actions-grid">
-              <button type="button" className="quick-action-button" onClick={() => onNavigate('users')}>
-                Review Users
-              </button>
-              <button type="button" className="quick-action-button" onClick={() => onNavigate('admin-lost-items')}>
-                Moderate Lost Items
-              </button>
-              <button
-                type="button"
-                className="quick-action-button"
-                onClick={() => onNavigate('contact-messages')}
-              >
-                Open Inbox
-              </button>
-              <button type="button" className="quick-action-button" onClick={() => onNavigate('profile')}>
-                Admin Profile
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="dashboard-section">
-        <div className="container dashboard-stat-grid">
-          {adminStats.map((card) => (
-            <StatCard card={card} key={card.label} />
-          ))}
-        </div>
-      </section>
-
-      <section className="dashboard-section dashboard-section-panels">
-        <div className="container dashboard-panels-grid admin-overview-grid">
-          <section className="dashboard-panel">
-            <div className="section-panel-heading">
-              <h2>Recent Users</h2>
-              <p>Newest accounts that may need review or follow-up.</p>
-            </div>
-            <div className="admin-list">
-              {(overview?.recent_users ?? []).map((recentUser) => (
-                <article className="admin-list-item" key={recentUser.id}>
-                  <div>
-                    <strong>{recentUser.name}</strong>
-                    <p>{recentUser.email}</p>
-                  </div>
-                  <div className="admin-list-meta">
-                    <span className={`badge badge-status badge-${recentUser.status?.toLowerCase()}`}>
-                      {recentUser.status}
-                    </span>
-                    <span>{formatDate(recentUser.created_at)}</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="dashboard-panel">
-            <div className="section-panel-heading">
-              <h2>Latest Contact Messages</h2>
-              <p>Recent support requests and community questions.</p>
-            </div>
-            <div className="admin-list">
-              {(overview?.recent_contact_messages ?? []).map((message) => (
-                <article className="admin-list-item" key={message.id}>
-                  <div>
-                    <strong>{message.subject || 'General support request'}</strong>
-                    <p>
-                      {message.name} · {message.email}
-                    </p>
-                  </div>
-                  <div className="admin-list-meta">
-                    <span className={`badge badge-status badge-${message.status?.toLowerCase()}`}>
-                      {message.status}
-                    </span>
-                    <span>{formatDate(message.created_at)}</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section className="dashboard-section">
-        <div className="container">
-          <section className="dashboard-panel">
-            <div className="section-panel-heading">
-              <h2>Recently Submitted Items</h2>
-              <p>Newest community reports requiring monitoring.</p>
-            </div>
-            <div className="admin-list">
-              {(overview?.recent_items ?? []).map((item) => (
-                <article className="admin-list-item" key={item.id}>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p>
-                      {item.user?.name || 'Unknown user'} · {item.location}
-                    </p>
-                  </div>
-                  <div className="admin-list-meta">
-                    <span className={`badge badge-type ${item.type === 'lost' ? 'badge-lost' : 'badge-found'}`}>
-                      {item.type}
-                    </span>
-                    <span className={`badge badge-status badge-${item.status?.toLowerCase()}`}>
-                      {item.status}
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        </div>
-      </section>
-    </>
-  )
-}
-
-function AdminUsersPage({ users, onUpdateUser, savingUserId }) {
-  return (
-    <PageShell
-      title="User Management"
-      subtitle="Control user roles, review details, and enable or disable community access."
-    >
-      <section className="dashboard-panel">
-        <div className="admin-table">
-          <div className="admin-table-head admin-table-row">
-            <span>User</span>
-            <span>Contact</span>
-            <span>Role</span>
-            <span>Status</span>
-            <span>Joined</span>
-            <span>Actions</span>
-          </div>
-
-          {users.map((managedUser) => (
-            <div className="admin-table-row" key={managedUser.id}>
-              <div className="admin-user-cell">
-                <span className="profile-avatar profile-avatar-small">
-                  {managedUser.profile_image_url ? (
-                    <img src={managedUser.profile_image_url} alt={managedUser.name} />
-                  ) : (
-                    managedUser.name.charAt(0).toUpperCase()
-                  )}
-                </span>
-                <div>
-                  <strong>{managedUser.name}</strong>
-                  <p>{managedUser.nrc_no || 'No NRC number'}</p>
-                </div>
-              </div>
-              <div>
-                <strong>{managedUser.email}</strong>
-                <p>{managedUser.phone || 'No phone number'}</p>
-              </div>
-              <div>
-                <span className={`badge badge-type ${managedUser.role === 'admin' ? 'badge-found' : 'badge-lost'}`}>
-                  {managedUser.role}
-                </span>
-              </div>
-              <div>
-                <span className={`badge badge-status badge-${managedUser.status?.toLowerCase()}`}>
-                  {managedUser.status}
-                </span>
-              </div>
-              <div>{formatDate(managedUser.created_at)}</div>
-              <div className="admin-actions">
-                {managedUser.role !== 'admin' ? (
-                  <button
-                    type="button"
-                    className="secondary-action-button"
-                    onClick={() =>
-                      onUpdateUser(managedUser.id, {
-                        status: managedUser.status === 'active' ? 'disabled' : 'active',
-                      })}
-                    disabled={savingUserId === managedUser.id}
-                  >
-                    {managedUser.status === 'active' ? 'Disable' : 'Enable'}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="quick-action-button admin-inline-button"
-                  onClick={() =>
-                    onUpdateUser(managedUser.id, {
-                      role: managedUser.role === 'admin' ? 'user' : 'admin',
-                    })}
-                  disabled={savingUserId === managedUser.id}
-                >
-                  {managedUser.role === 'admin' ? 'Make User' : 'Make Admin'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-    </PageShell>
-  )
-}
-
-function AdminItemsPage({ title, subtitle, items, onUpdateItem, savingItemId }) {
-  const [drafts, setDrafts] = useState({})
-
-  const updateDraft = (itemId, field, value) => {
-    setDrafts((current) => ({
-      ...current,
-      [itemId]: {
-        status: current[itemId]?.status ?? items.find((item) => item.id === itemId)?.status ?? 'pending',
-        admin_note: current[itemId]?.admin_note ?? items.find((item) => item.id === itemId)?.admin_note ?? '',
-        [field]: value,
-      },
-    }))
-  }
-
-  return (
-    <PageShell
-      title={title}
-      subtitle={subtitle}
-    >
-      <div className="admin-card-grid">
-        {items.length === 0 ? <div className="settings-note">No submitted items found in this section yet.</div> : null}
-        {items.map((item) => {
-          const draft = drafts[item.id] ?? {
-            status: item.status,
-            admin_note: item.admin_note ?? '',
-          }
-
-          return (
-            <article className="dashboard-panel admin-item-card" key={item.id}>
-              <div className="admin-item-top">
-                <div>
-                  <div className="recent-item-badges">
-                    <span className={`badge badge-type ${item.type === 'lost' ? 'badge-lost' : 'badge-found'}`}>
-                      {item.type}
-                    </span>
-                    <span className={`badge badge-status badge-${item.status?.toLowerCase()}`}>
-                      {item.status}
-                    </span>
-                  </div>
-                  <h2>{item.title}</h2>
-                  <p>
-                    {item.user?.name || 'Unknown user'} · {item.location}
-                  </p>
-                </div>
-                {item.image_url ? <img src={item.image_url} alt={item.title} className="admin-item-image" /> : null}
-              </div>
-
-              <p className="admin-item-description">{item.description}</p>
-
-              <div className="settings-list admin-item-meta">
-                <div>
-                  <strong>Date</strong>
-                  <span>{formatDate(item.item_date)}</span>
-                </div>
-                <div>
-                  <strong>Category</strong>
-                  <span>{item.category?.name || 'Uncategorized'}</span>
-                </div>
-                <div>
-                  <strong>Approved By</strong>
-                  <span>{item.approved_by?.name || 'Not yet approved'}</span>
-                </div>
-              </div>
-
-              <div className="admin-form-grid">
-                <label className="auth-field">
-                  <span className="auth-label">Status</span>
-                  <span className="admin-select-shell">
-                    <select
-                      value={draft.status}
-                      onChange={(event) => updateDraft(item.id, 'status', event.target.value)}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </span>
-                </label>
-
-                <label className="auth-field">
-                  <span className="auth-label">Admin Note</span>
-                  <textarea
-                    className="admin-note-input"
-                    rows="4"
-                    value={draft.admin_note}
-                    onChange={(event) => updateDraft(item.id, 'admin_note', event.target.value)}
-                  />
-                </label>
-              </div>
-
-              <div className="admin-actions admin-actions-end">
-                <button
-                  type="button"
-                  className="quick-action-button"
-                  onClick={() => onUpdateItem(item.id, draft)}
-                  disabled={savingItemId === item.id}
-                >
-                  {savingItemId === item.id ? 'Saving...' : 'Save Review'}
-                </button>
-              </div>
-            </article>
-          )
-        })}
-      </div>
-    </PageShell>
-  )
-}
-
-function AdminContactMessagesPage({ messages, onUpdateMessage, savingMessageId }) {
-  return (
-    <PageShell
-      title="Contact Messages"
-      subtitle="Track community inquiries and update their support status."
-    >
-      <div className="admin-card-grid">
-        {messages.map((message) => (
-          <article className="dashboard-panel admin-message-card" key={message.id}>
-            <div className="section-panel-heading">
-              <h2>{message.subject || 'General support request'}</h2>
-              <p>
-                {message.name} · {message.email}
-                {message.phone ? ` · ${message.phone}` : ''}
-              </p>
-            </div>
-
-            <p className="admin-message-body">{message.message}</p>
-
-            <div className="admin-message-footer">
-              <span className={`badge badge-status badge-${message.status?.toLowerCase()}`}>
-                {message.status}
-              </span>
-              <span>
-                {formatDate(message.created_at, {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
-
-            <div className="admin-actions">
-              <button
-                type="button"
-                className="secondary-action-button"
-                onClick={() => onUpdateMessage(message.id, { status: 'read' })}
-                disabled={savingMessageId === message.id}
-              >
-                Mark Read
-              </button>
-              <button
-                type="button"
-                className="quick-action-button admin-inline-button"
-                onClick={() => onUpdateMessage(message.id, { status: 'replied' })}
-                disabled={savingMessageId === message.id}
-              >
-                Mark Replied
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
-    </PageShell>
-  )
-}
-
 function DashboardContent({
   activePage,
   user,
@@ -1375,7 +1584,6 @@ function DashboardContent({
   messageConversations,
   activeConversation,
   activeConversationMessages,
-  contactUsers,
   onOpenConversation,
   onSendMessage,
   onTypingStateChange,
@@ -1446,7 +1654,7 @@ function DashboardContent({
           conversations={messageConversations}
           activeConversation={activeConversation}
           messages={activeConversationMessages}
-          contactUsers={contactUsers}
+          itemSources={[...communityPosts, ...approvedItems, ...myItems]}
           onOpenConversation={onOpenConversation}
           onSendMessage={onSendMessage}
           onTypingStateChange={onTypingStateChange}
@@ -1458,7 +1666,7 @@ function DashboardContent({
         />
       )
     case 'contact':
-      return <ContactPage />
+      return <ContactPage user={user} token={token} />
     case 'profile':
       return <ProfilePage user={user} token={token} onUserUpdate={onUserUpdate} />
     default:
@@ -1485,7 +1693,6 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const [communityPosts, setCommunityPosts] = useState([])
   const [approvedItems, setApprovedItems] = useState([])
   const [myItems, setMyItems] = useState([])
-  const [userOverview, setUserOverview] = useState(null)
   const [notificationItems, setNotificationItems] = useState([])
   const [messageConversations, setMessageConversations] = useState([])
   const [myClaims, setMyClaims] = useState([])
@@ -1554,7 +1761,6 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         apiRequest('/found-items', { token }),
         apiRequest('/messages', { token }),
         apiRequest('/claims', { token }),
-        apiRequest('/dashboard/overview', { token }),
         apiRequest('/notifications', { token }),
       ])
 
@@ -1568,7 +1774,6 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         foundResult,
         messagesResult,
         claimsResult,
-        overviewResult,
         notificationsResult,
       ] = results
 
@@ -1602,11 +1807,6 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           ? (claimsResult.value.claims ?? [])
           : [],
       )
-      setUserOverview(
-        overviewResult.status === 'fulfilled'
-          ? (overviewResult.value ?? null)
-          : null,
-      )
       setNotificationItems(
         notificationsResult.status === 'fulfilled'
           ? (notificationsResult.value.notifications ?? [])
@@ -1615,9 +1815,13 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
 
     void loadUserData()
+    const refreshTimer = window.setInterval(() => {
+      void loadUserData()
+    }, 30000)
 
     return () => {
       ignore = true
+      window.clearInterval(refreshTimer)
     }
   }, [token])
 
@@ -1784,16 +1988,6 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       setNotificationItems((current) => [payload.notification, ...current].slice(0, 20))
     }
 
-    if (payload?.activity) {
-      setUserOverview((current) =>
-        current
-          ? {
-              ...current,
-              recent_activity: [payload.activity, ...(current.recent_activity ?? [])].slice(0, 8),
-            }
-          : current,
-      )
-    }
   }
 
   const handleSubmitClaim = async (claimValues) => {
@@ -1807,18 +2001,6 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       })
 
       setMyClaims((current) => [payload.claim, ...current.filter((claim) => claim.id !== payload.claim.id)])
-      setUserOverview((current) =>
-        current
-          ? {
-              ...current,
-              stats: {
-                ...(current.stats ?? {}),
-                my_claim_requests: (current.stats?.my_claim_requests ?? 0) + 1,
-              },
-              recent_activity: [payload.activity, ...(current.recent_activity ?? [])].filter(Boolean).slice(0, 8),
-            }
-          : current,
-      )
       if (payload.notification) {
         setNotificationItems((current) => [payload.notification, ...current].slice(0, 20))
       }
@@ -2105,7 +2287,6 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           messageConversations={messageConversations}
           activeConversation={activeConversation}
           activeConversationMessages={activeConversationMessages}
-          contactUsers={contactUsers}
           onOpenConversation={handleOpenConversation}
           onSendMessage={handleSendMessage}
           onTypingStateChange={handleTypingStateChange}

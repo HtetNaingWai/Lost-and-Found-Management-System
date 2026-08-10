@@ -76,68 +76,72 @@ function CommunityPostCard({ post, onClick, onImageClick, isSaved, onToggleSave 
         </div>
       </div>
 
-      {title ? <h3 className="community-post-title">{title}</h3> : null}
-      <p className="community-post-content">{content}</p>
+      <div className={`community-report-body${imageUrl ? ' has-media' : ''}`}>
+        {imageUrl ? (
+          <button
+            type="button"
+            className="community-post-image-button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onImageClick?.(imageUrl, title || 'Post attachment')
+            }}
+          >
+            <img className="community-post-image" src={imageUrl} alt={title || 'Post attachment'} />
+          </button>
+        ) : null}
 
-      {imageUrl ? (
-        <button
-          type="button"
-          className="community-post-image-button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onImageClick?.(imageUrl, title || 'Post attachment')
-          }}
-        >
-          <img className="community-post-image" src={imageUrl} alt={title || 'Post attachment'} />
-        </button>
-      ) : null}
+        <div className="community-report-copy">
+          {title ? <h3 className="community-post-title">{title}</h3> : null}
+          <p className="community-post-content">{content}</p>
 
-      {postType !== 'community' ? (
-        <div className="community-post-meta">
-          {post.location ? (
-            <p>
-              <Icon name="pin" />
-              <span>{post.location}</span>
-            </p>
+          {postType !== 'community' ? (
+            <div className="community-post-meta">
+              {post.location ? (
+                <p>
+                  <Icon name="pin" />
+                  <span>{post.location}</span>
+                </p>
+              ) : null}
+              {itemDate ? (
+                <p>
+                  <Icon name="document" />
+                  <span>{itemDate}</span>
+                </p>
+              ) : null}
+              {post.category?.name ? (
+                <p>
+                  <Icon name="clipboard" />
+                  <span>{post.category.name}</span>
+                </p>
+              ) : null}
+            </div>
           ) : null}
-          {itemDate ? (
-            <p>
-              <Icon name="document" />
-              <span>{itemDate}</span>
-            </p>
-          ) : null}
-          {post.category?.name ? (
-            <p>
-              <Icon name="clipboard" />
-              <span>{post.category.name}</span>
-            </p>
-          ) : null}
+
+          <div className="community-post-actions">
+            <button
+              type="button"
+              className={`secondary-action-button community-card-action${isSaved ? ' is-saved' : ''}`}
+              onClick={(event) => {
+                event.stopPropagation()
+                onToggleSave?.(post.id)
+              }}
+            >
+              <Icon name={isSaved ? 'bookmarkFilled' : 'bookmark'} />
+              <span>{isSaved ? 'Saved' : 'Save Post'}</span>
+            </button>
+            <button
+              type="button"
+              className="secondary-action-button community-card-action"
+              onClick={(event) => {
+                event.stopPropagation()
+                onClick?.()
+              }}
+            >
+              <Icon name="chat" />
+              <span>View Details</span>
+            </button>
+          </div>
         </div>
-      ) : null}
-
-      <div className="community-post-actions">
-        <button
-          type="button"
-          className={`secondary-action-button community-card-action${isSaved ? ' is-saved' : ''}`}
-          onClick={(event) => {
-            event.stopPropagation()
-            onToggleSave?.(post.id)
-          }}
-        >
-          <Icon name={isSaved ? 'bookmarkFilled' : 'bookmark'} />
-          <span>{isSaved ? 'Saved' : 'Save Post'}</span>
-        </button>
-        <button
-          type="button"
-          className="secondary-action-button community-card-action"
-          onClick={(event) => {
-            event.stopPropagation()
-            onClick?.()
-          }}
-        >
-          <Icon name="chat" />
-          <span>View Details</span>
-        </button>
       </div>
     </article>
   )

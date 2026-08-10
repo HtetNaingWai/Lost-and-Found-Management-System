@@ -47,6 +47,8 @@ class CommunityPostController extends Controller
             'content' => ['required', 'string'],
             'category_id' => ['nullable', 'exists:categories,id'],
             'location' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'item_date' => ['nullable', 'date'],
             'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
@@ -57,6 +59,8 @@ class CommunityPostController extends Controller
             $request->validate([
                 'title' => ['required', 'string', 'max:255'],
                 'location' => ['required', 'string', 'max:255'],
+                'latitude' => ['required', 'numeric', 'between:-90,90'],
+                'longitude' => ['required', 'numeric', 'between:-180,180'],
                 'item_date' => ['required', 'date'],
             ]);
         }
@@ -70,6 +74,8 @@ class CommunityPostController extends Controller
             'content' => $validated['content'],
             'category_id' => $validated['category_id'] ?? null,
             'location' => $validated['location'] ?? null,
+            'latitude' => $validated['latitude'] ?? null,
+            'longitude' => $validated['longitude'] ?? null,
             'item_date' => $validated['item_date'] ?? null,
             'image' => $imagePath,
             'status' => 'pending',
@@ -199,6 +205,8 @@ class CommunityPostController extends Controller
                 : $post->title,
             'content' => $post->content,
             'location' => $post->location,
+            'latitude' => $post->latitude !== null ? (float) $post->latitude : null,
+            'longitude' => $post->longitude !== null ? (float) $post->longitude : null,
             'item_date' => optional($post->item_date)?->format('Y-m-d'),
             'status' => $post->status,
             'admin_note' => $post->admin_note,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import FloatingPostButton from '../components/FloatingPostButton'
 import CreatePostModal from '../components/CreatePostModal'
+import CommunityMap from '../components/CommunityMap'
 import CommunityPostCard from '../components/CommunityPostCard'
 import PostDetailModal from '../components/PostDetailModal'
 import Icon from '../components/Icon'
@@ -13,7 +13,6 @@ const communityMenuItems = [
   { key: 'my-posts', label: 'My Posts', icon: 'document' },
   { key: 'my-claims', label: 'My Claims', icon: 'clipboard' },
   { key: 'saved-posts', label: 'Saved Posts', icon: 'bookmark' },
-  { key: 'messages', label: 'Messages', icon: 'chat' },
   { key: 'notifications', label: 'Notifications', icon: 'bell' },
 ]
 
@@ -304,13 +303,17 @@ function CommunityPage({
             />
 
             <div className="community-main-column">
+              {activeSection === 'feed' ? (
+                <CommunityMap
+                  posts={orderedPosts}
+                  onViewDetails={(post) => setSelectedPost(post)}
+                />
+              ) : null}
               {renderSection()}
             </div>
           </div>
         </div>
       </section>
-
-      <FloatingPostButton onClick={() => setIsModalOpen(true)} />
 
       <CreatePostModal
         open={isModalOpen}

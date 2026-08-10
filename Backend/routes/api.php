@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminWebhookController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClaimController;
+use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\CommunityPostController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\MessageController;
@@ -25,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/dashboard/overview', [UserDashboardController::class, 'overview']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/contact-messages', [ContactMessageController::class, 'store']);
     Route::get('/categories', [ItemController::class, 'categories']);
     Route::get('/items', [ItemController::class, 'index']);
     Route::get('/my-items', [ItemController::class, 'myItems']);

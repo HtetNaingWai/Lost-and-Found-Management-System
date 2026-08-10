@@ -43,7 +43,7 @@ export const initialRegisterValues = {
 }
 
 export const dashboardMenuItems = [
-  { key: 'community', label: 'Community', icon: 'community', path: '/community' },
+  { key: 'community', label: 'Home', icon: 'community', path: '/community' },
   { key: 'lost-items', label: 'Lost Items', icon: 'search', path: '/lost-items' },
   { key: 'found-items', label: 'Found Items', icon: 'inventory', path: '/found-items' },
   { key: 'messages', label: 'Messages', icon: 'chat', path: '/messages' },
@@ -68,7 +68,7 @@ export const profileDropdownItems = [
 ]
 
 export const adminProfileDropdownItems = [
-  { key: 'profile', label: 'Admin Profile', icon: 'userCircle', path: '/admin/settings' },
+  { key: 'profile', label: 'Admin Profile', icon: 'userCircle', path: '/admin' },
   { key: 'users', label: 'Manage Users', icon: 'group', path: '/admin/users' },
   { key: 'admin-lost-items', label: 'Manage Lost Items', icon: 'search', path: '/admin/lost-items' },
   { key: 'admin-found-items', label: 'Manage Found Items', icon: 'inventory', path: '/admin/found-items' },
