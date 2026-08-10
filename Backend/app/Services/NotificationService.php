@@ -25,7 +25,7 @@ class NotificationService
             'data' => $data ?: null,
         ]);
 
-        event(new NotificationCreated($recipientUserId, self::transform($notification)));
+        RealtimeBroadcaster::dispatch(new NotificationCreated($recipientUserId, self::transform($notification)));
 
         return $notification;
     }

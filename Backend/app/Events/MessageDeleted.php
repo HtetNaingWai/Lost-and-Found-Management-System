@@ -1,0 +1,47 @@
+<?php
+
+namespace App\Events;
+
+use App\Support\RealtimeChannels;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class MessageDeleted implements ShouldBroadcastNow
+{
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
+
+    public function __construct(
+        public readonly array $message,
+        public readonly int $senderId,
+        public readonly int $receiverId,
+    ) {
+    }
+
+    public function broadcastOn(): array
+    {
+        return [
+            new PrivateChannel(RealtimeChannels::conversation($this->senderId, $this->receiverId)),
+            new PrivateChannel(RealtimeChannels::user($this->senderId)),
+            new PrivateChannel(RealtimeChannels::user($this->receiverId)),
+        ];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'message.deleted';
+    }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'message' => $this->message,
+            'sender_id' => $this->senderId,
+            'receiver_id' => $this->receiverId,
+        ];
+    }
+}

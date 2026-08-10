@@ -58,4 +58,9 @@ class CommunityPost extends Model
     {
         return $this->hasMany(Claim::class);
     }
+
+    public function savedPosts(): HasMany
+    {
+        return $this->hasMany(SavedPost::class);
+    }
 }

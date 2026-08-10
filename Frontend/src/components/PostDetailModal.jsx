@@ -1,12 +1,27 @@
 import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import { formatDate } from '../utils/formatDate'
+import { resolveImageUrl } from '../utils/imageUrl'
 
-function PostDetailModal({ post, user, onClose, onStartMessage, onSubmitClaim, existingClaim, submittingClaim = false }) {
+function PostDetailModal({
+  post,
+  user,
+  onClose,
+  onStartMessage,
+  onSubmitClaim,
+  onMarkClaimReturned,
+  existingClaim,
+  submittingClaim = false,
+  savingClaimId = null,
+  isSaved = false,
+  onToggleSave,
+  savingSave = false,
+}) {
   const [claimOpen, setClaimOpen] = useState(false)
   const [proofDescription, setProofDescription] = useState('')
   const [contactPhone, setContactPhone] = useState(user?.phone ?? '')
   const [claimError, setClaimError] = useState('')
+  const [imageFailed, setImageFailed] = useState(false)
 
   useEffect(() => {
     if (!post) return undefined
@@ -28,6 +43,7 @@ function PostDetailModal({ post, user, onClose, onStartMessage, onSubmitClaim, e
     setProofDescription('')
     setContactPhone(user?.phone ?? '')
     setClaimError('')
+    setImageFailed(false)
   }, [post, user?.phone])
 
   if (!post) return null
@@ -37,7 +53,8 @@ function PostDetailModal({ post, user, onClose, onStartMessage, onSubmitClaim, e
   const statusLabel = status.charAt(0).toUpperCase() + status.slice(1)
   const title = post.title ?? post.itemTitle
   const content = post.content ?? post.description
-  const imageUrl = post.image_url ?? post.imageUrl
+  const imageUrl = resolveImageUrl(post.image_url ?? post.imageUrl ?? post.image)
+  const shouldShowImage = imageUrl && !imageFailed
   const createdAt = post.created_at ?? post.createdAt
   const itemDate = post.item_date ?? post.itemDate
   const owner = post.user ?? {}
@@ -98,15 +115,31 @@ function PostDetailModal({ post, user, onClose, onStartMessage, onSubmitClaim, e
               <h2 id="post-detail-title">{title || 'Community Post Details'}</h2>
               <p>View the full post details and member information.</p>
             </div>
-            <button type="button" className="modal-close-button" onClick={onClose}>
-              <Icon name="close" />
-            </button>
+            <div className="post-detail-top-actions">
+              <button
+                type="button"
+                className={`community-save-button${isSaved ? ' is-saved' : ''}`}
+                disabled={savingSave}
+                onClick={onToggleSave}
+                aria-label={isSaved ? 'Remove from saved posts' : 'Save post'}
+              >
+                <Icon name={isSaved ? 'bookmarkFilled' : 'bookmark'} />
+              </button>
+              <button type="button" className="modal-close-button" onClick={onClose}>
+                <Icon name="close" />
+              </button>
+            </div>
           </div>
 
           <div className="post-detail-body">
-            {imageUrl ? (
+            {shouldShowImage ? (
               <div className="post-detail-image-wrap">
-                <img className="post-detail-image" src={imageUrl} alt={title || 'Post attachment'} />
+                <img
+                  className="post-detail-image"
+                  src={imageUrl}
+                  alt={title || 'Post attachment'}
+                  onError={() => setImageFailed(true)}
+                />
               </div>
             ) : null}
 
@@ -174,7 +207,7 @@ function PostDetailModal({ post, user, onClose, onStartMessage, onSubmitClaim, e
               <div className="settings-note claim-status-note">
                 <strong>Your Claim Status:</strong> {existingClaimStatusLabel}
                 {existingClaim.returned_at ? ` • Returned ${formatDate(existingClaim.returned_at)}` : ''}
-                {existingClaim.admin_note ? ` • Admin note: ${existingClaim.admin_note}` : ''}
+                {existingClaim.admin_note ? ` • Note: ${existingClaim.admin_note}` : ''}
               </div>
             ) : null}
 
@@ -210,6 +243,21 @@ function PostDetailModal({ post, user, onClose, onStartMessage, onSubmitClaim, e
                             onClick={() => onStartMessage?.(claim.user, post)}
                           >
                             Message Claimer
+                          </button>
+                        ) : null}
+                        {['pending', 'approved'].includes(claim.status) ? (
+                          <button
+                            type="button"
+                            className="quick-action-button"
+                            disabled={savingClaimId === claim.id}
+                            onClick={() => {
+                              const confirmed = window.confirm('Confirm that this item has been returned to the claimant.')
+                              if (confirmed) {
+                                void onMarkClaimReturned?.({ ...claim, community_post: post })
+                              }
+                            }}
+                          >
+                            {savingClaimId === claim.id ? 'Saving...' : 'Mark as Returned'}
                           </button>
                         ) : null}
                       </div>

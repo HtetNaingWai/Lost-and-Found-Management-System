@@ -86,7 +86,7 @@ class ClaimController extends Controller
             $request->user()->id,
             'claim_submitted',
             'Claim submitted',
-            ($post->title ?: 'Found item claim').' is awaiting admin review.',
+            ($post->title ?: 'Found item claim').' was sent to the finder for review.',
             [
                 'claim_id' => $claim->id,
                 'community_post_id' => $post->id,
@@ -97,12 +97,13 @@ class ClaimController extends Controller
             NotificationService::create(
                 $post->user_id,
                 'claim_received',
-                'New claim on your found item',
-                ($request->user()->name ?: 'A user').' submitted a claim for '.($post->title ?: 'your found item').'.',
+                'New claim received',
+                ($request->user()->name ?: 'A user').' submitted a claim for your found item "'.($post->title ?: 'Found item').'".',
                 [
                     'claim_id' => $claim->id,
                     'community_post_id' => $post->id,
                     'claimant_id' => $request->user()->id,
+                    'section' => 'my-found',
                 ],
             );
         }
@@ -117,7 +118,7 @@ class ClaimController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Claim submitted successfully and is awaiting admin review.',
+            'message' => 'Claim submitted successfully. The finder has been notified.',
             'claim' => $this->transformClaim($claim->load([
                 'user:id,name,email,profile_image',
                 'communityPost.user:id,name,email,profile_image',
@@ -127,12 +128,137 @@ class ClaimController extends Controller
             'activity' => [
                 'id' => 'claim-'.$claim->id,
                 'title' => 'Claim submitted',
-                'detail' => ($post->title ?: 'Found item claim').' is now pending admin review.',
+                'detail' => ($post->title ?: 'Found item claim').' is now pending finder review.',
                 'time' => optional($claim->created_at)?->toISOString(),
                 'icon' => 'clipboard',
             ],
             'notification' => $this->transformNotification($claimantNotification),
         ], Response::HTTP_CREATED);
+    }
+
+    public function update(Request $request, Claim $claim): JsonResponse
+    {
+        abort_unless($claim->user_id === $request->user()->id, Response::HTTP_FORBIDDEN);
+
+        if ($claim->status !== 'pending') {
+            return response()->json([
+                'message' => 'Only pending claims can be edited.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $validated = $request->validate([
+            'proof_description' => ['required', 'string'],
+            'contact_phone' => ['required', 'string', 'max:50'],
+        ]);
+
+        $claim->update([
+            'proof_description' => $validated['proof_description'],
+            'contact_phone' => $validated['contact_phone'],
+        ]);
+
+        return response()->json([
+            'message' => 'Claim updated successfully.',
+            'claim' => $this->transformClaim($claim->fresh([
+                'user:id,name,email,profile_image',
+                'communityPost.user:id,name,email,profile_image',
+                'communityPost.category:id,name',
+                'reviewedBy:id,name',
+            ])),
+        ]);
+    }
+
+    public function destroy(Request $request, Claim $claim): JsonResponse
+    {
+        abort_unless($claim->user_id === $request->user()->id, Response::HTTP_FORBIDDEN);
+
+        if ($claim->status !== 'pending') {
+            return response()->json([
+                'message' => 'Only pending claims can be withdrawn.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $claim->delete();
+
+        return response()->json([
+            'message' => 'Claim withdrawn successfully.',
+        ]);
+    }
+
+    public function markReturned(Request $request, Claim $claim): JsonResponse
+    {
+        $claim->load([
+            'user:id,name,email,profile_image',
+            'communityPost.user:id,name,email,profile_image',
+            'communityPost.category:id,name',
+            'reviewedBy:id,name',
+        ]);
+
+        if (!$claim->communityPost || $claim->communityPost->post_type !== 'found') {
+            return response()->json([
+                'message' => 'Only claims for found item posts can be marked as returned.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        abort_unless($claim->communityPost->user_id === $request->user()->id, Response::HTTP_FORBIDDEN);
+
+        if (!in_array($claim->status, ['pending', 'approved'], true)) {
+            return response()->json([
+                'message' => 'Only active claims can be marked as returned.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $returnedAt = now();
+
+        $claim->status = 'returned';
+        $claim->returned_at = $returnedAt;
+        $claim->save();
+
+        $claim->communityPost->status = 'returned';
+        $claim->communityPost->returned_at = $returnedAt;
+        $claim->communityPost->save();
+
+        NotificationService::create(
+            $claim->user_id,
+            'item_returned',
+            'Item returned',
+            ($claim->communityPost->title ?: 'Found item').' has been marked as returned.',
+            [
+                'claim_id' => $claim->id,
+                'community_post_id' => $claim->community_post_id,
+                'finder_id' => $request->user()->id,
+                'section' => 'my-claims',
+            ],
+        );
+
+        $finderNotification = NotificationService::create(
+            $claim->communityPost->user_id,
+            'return_completed',
+            'Return completed',
+            ($claim->communityPost->title ?: 'Found item').' has been recorded as successfully returned.',
+            [
+                'claim_id' => $claim->id,
+                'community_post_id' => $claim->community_post_id,
+                'claimant_id' => $claim->user_id,
+                'section' => 'my-found',
+            ],
+        );
+
+        $claimPayload = $this->transformClaim($claim->fresh([
+            'user:id,name,email,profile_image',
+            'communityPost.user:id,name,email,profile_image',
+            'communityPost.category:id,name',
+            'reviewedBy:id,name',
+        ]));
+
+        WebhookDispatcher::dispatch('item_returned', [
+            'claim' => $claimPayload,
+        ]);
+
+        return response()->json([
+            'message' => 'Item marked as returned successfully.',
+            'claim' => $claimPayload,
+            'notification' => $this->transformNotification($finderNotification),
+        ]);
     }
 
     protected function transformClaim(Claim $claim): array

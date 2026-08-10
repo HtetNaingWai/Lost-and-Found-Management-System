@@ -20,6 +20,7 @@ import {
   getRealtimeClient,
   getUserChannelName,
 } from '../services/realtime'
+import { useSavedPosts } from '../hooks/useSavedPosts'
 import { formatDate } from '../utils/formatDate'
 
 function DashboardContent({
@@ -38,10 +39,17 @@ function DashboardContent({
   messageConversations,
   activeConversation,
   activeConversationMessages,
+  selectedMessageItem,
   onOpenConversation,
   onSendMessage,
+  onDeleteMessage,
+  onDeleteConversation,
   onTypingStateChange,
   onSubmitClaim,
+  onUpdateClaim,
+  onWithdrawClaim,
+  onMarkClaimReturned,
+  savingClaimId,
   submittingClaim,
   sendingMessage,
   loadingConversation,
@@ -49,6 +57,10 @@ function DashboardContent({
   onStartMessage,
   onlineUserIds,
   typingParticipantId,
+  savedPostsState,
+  onDeletePost,
+  onUpdatePost,
+  deletingPostId,
 }) {
   switch (activePage) {
     case 'community':
@@ -65,7 +77,15 @@ function DashboardContent({
           notifications={notifications}
           onStartMessage={onStartMessage}
           onSubmitClaim={onSubmitClaim}
+          onUpdateClaim={onUpdateClaim}
+          onWithdrawClaim={onWithdrawClaim}
+          onMarkClaimReturned={onMarkClaimReturned}
+          savingClaimId={savingClaimId}
           submittingClaim={submittingClaim}
+          savedPostsState={savedPostsState}
+          onDeletePost={onDeletePost}
+          onUpdatePost={onUpdatePost}
+          deletingPostId={deletingPostId}
         />
       )
     case 'lost-items':
@@ -78,6 +98,7 @@ function DashboardContent({
           myClaims={myClaims}
           onSubmitClaim={onSubmitClaim}
           submittingClaim={submittingClaim}
+          savedPostsState={savedPostsState}
         />
       )
     case 'found-items':
@@ -90,6 +111,7 @@ function DashboardContent({
           myClaims={myClaims}
           onSubmitClaim={onSubmitClaim}
           submittingClaim={submittingClaim}
+          savedPostsState={savedPostsState}
         />
       )
     case 'report-items':
@@ -108,9 +130,14 @@ function DashboardContent({
           conversations={messageConversations}
           activeConversation={activeConversation}
           messages={activeConversationMessages}
+          selectedMessageItem={selectedMessageItem}
           itemSources={[...communityPosts, ...approvedItems, ...myItems]}
           onOpenConversation={onOpenConversation}
           onSendMessage={onSendMessage}
+          onDeleteMessage={onDeleteMessage}
+          onDeleteConversation={onDeleteConversation}
+          onMarkClaimReturned={onMarkClaimReturned}
+          savingClaimId={savingClaimId}
           onTypingStateChange={onTypingStateChange}
           sendingMessage={sendingMessage}
           loadingConversation={loadingConversation}
@@ -134,10 +161,15 @@ function DashboardContent({
           onCreatePost={onItemSubmitted}
           onNavigate={onNavigate}
           notifications={notifications}
+          savedPostsState={savedPostsState}
+          onUpdatePost={onUpdatePost}
         />
       )
   }
 }
+
+const normalizePresenceIds = (ids = []) =>
+  Array.from(new Set(ids.map((id) => Number(id)).filter(Number.isFinite)))
 
 function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const [profileOpen, setProfileOpen] = useState(false)
@@ -152,19 +184,29 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const [myClaims, setMyClaims] = useState([])
   const [activeConversation, setActiveConversation] = useState(null)
   const [activeConversationMessages, setActiveConversationMessages] = useState([])
+  const [selectedMessageItem, setSelectedMessageItem] = useState(null)
   const [loadingConversation, setLoadingConversation] = useState(false)
   const [sendingMessage, setSendingMessage] = useState(false)
   const [submittingClaim, setSubmittingClaim] = useState(false)
+  const [deletingPostId, setDeletingPostId] = useState(null)
+  const [savingClaimId, setSavingClaimId] = useState(null)
   const [messageError, setMessageError] = useState('')
   const [onlineUserIds, setOnlineUserIds] = useState([])
   const [typingParticipantId, setTypingParticipantId] = useState(null)
   const profileRef = useRef(null)
   const notificationRef = useRef(null)
   const activeConversationRef = useRef(null)
+  const openConversationRef = useRef(null)
   const typingStateRef = useRef({ receiverId: null, isTyping: false })
   const location = useLocation()
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  const savedPostsState = useSavedPosts(token)
+
+  const getConversationId = (participantId, relatedPost = null, itemId = null) => {
+    const postId = relatedPost?.community_post_id ?? relatedPost?.id ?? null
+    return `${participantId}:post-${postId ?? 'none'}:item-${itemId ?? 'none'}`
+  }
 
   useEffect(() => {
     activeConversationRef.current = activeConversation
@@ -303,33 +345,60 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
   }
 
-  const handleOpenConversation = async (participant) => {
-    if (location.pathname !== '/messages' || searchParams.get('user') !== String(participant.id)) {
-      navigate(`/messages?user=${participant.id}`)
+  const handleOpenConversation = async (participant, relatedPost = null, conversation = null) => {
+    if (!participant?.id || Number(participant.id) === Number(user.id)) return
+
+    const contextPost = relatedPost ?? conversation?.related_item ?? null
+    const communityPostId = conversation?.community_post_id ?? contextPost?.community_post_id ?? contextPost?.id ?? null
+    const itemId = conversation?.item_id ?? null
+    const conversationId = conversation?.id ?? getConversationId(participant.id, communityPostId ? { id: communityPostId } : null, itemId)
+
+    setSelectedMessageItem(contextPost)
+
+    const nextParams = new URLSearchParams({ user: String(participant.id) })
+    if (communityPostId) nextParams.set('community_post_id', String(communityPostId))
+    if (itemId) nextParams.set('item_id', String(itemId))
+    const nextPath = `/messages?${nextParams.toString()}`
+
+    if (`${location.pathname}${location.search}` !== nextPath) {
+      navigate(nextPath)
     }
-    setActiveConversation({ participant })
+    setActiveConversation({ participant, id: conversationId, community_post_id: communityPostId, item_id: itemId })
     setLoadingConversation(true)
     setMessageError('')
 
     try {
-      const payload = await apiRequest(`/messages/${participant.id}`, { token })
-      setActiveConversation({ participant: payload.participant })
+      const apiParams = new URLSearchParams()
+      if (communityPostId) apiParams.set('community_post_id', String(communityPostId))
+      if (itemId) apiParams.set('item_id', String(itemId))
+      const payload = await apiRequest(`/messages/${participant.id}${apiParams.toString() ? `?${apiParams.toString()}` : ''}`, { token })
+      const nextConversation = {
+        id: payload.id ?? conversationId,
+        participant: payload.participant,
+        community_post_id: payload.community_post_id ?? communityPostId,
+        item_id: payload.item_id ?? itemId,
+        related_item: payload.related_item ?? contextPost,
+      }
+
+      setActiveConversation(nextConversation)
+      setSelectedMessageItem(nextConversation.related_item)
       setActiveConversationMessages(payload.messages ?? [])
-      setSearchParams({ user: String(payload.participant.id) }, { replace: true })
       setMessageConversations((current) => {
-        const exists = current.some((conversation) => conversation.participant?.id === payload.participant.id)
+        const latestMessage = payload.messages.at(-1) ?? null
+        const exists = current.some((currentConversation) => currentConversation.id === nextConversation.id)
 
         if (exists) {
           return current
-            .map((conversation) =>
-            conversation.participant?.id === payload.participant.id
+            .map((currentConversation) =>
+            currentConversation.id === nextConversation.id
               ? {
-                  ...conversation,
+                  ...currentConversation,
                   participant: payload.participant,
-                  latest_message: payload.messages.at(-1) ?? conversation.latest_message,
+                  related_item: nextConversation.related_item,
+                  latest_message: latestMessage ?? currentConversation.latest_message,
                   unread_count: 0,
                 }
-              : conversation,
+              : currentConversation,
           )
             .sort((left, right) => {
               const leftTime = new Date(left.latest_message?.created_at ?? 0).getTime()
@@ -340,8 +409,9 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
 
         return [
           {
+            ...nextConversation,
             participant: payload.participant,
-            latest_message: payload.messages.at(-1) ?? null,
+            latest_message: latestMessage,
             unread_count: 0,
           },
           ...current,
@@ -362,18 +432,30 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
   }
 
-  const handleSendMessage = async (receiverId, message) => {
+  useEffect(() => {
+    openConversationRef.current = handleOpenConversation
+  })
+
+  const handleSendMessage = async (receiverId, message, attachment = null, relatedPost = null, conversation = null) => {
     setSendingMessage(true)
     setMessageError('')
 
     try {
+      const formData = new FormData()
+      formData.append('receiver_id', receiverId)
+      if (message?.trim()) formData.append('message', message.trim())
+      if (attachment) formData.append('attachment', attachment)
+
+      const communityPostId = conversation?.community_post_id ?? relatedPost?.community_post_id ?? relatedPost?.id
+      const itemId = conversation?.item_id ?? null
+
+      if (communityPostId) formData.append('community_post_id', communityPostId)
+      if (itemId) formData.append('item_id', itemId)
+
       const payload = await apiRequest('/messages', {
         method: 'POST',
         token,
-        body: {
-          receiver_id: receiverId,
-          message,
-        },
+        body: formData,
       })
 
       setActiveConversationMessages((current) => {
@@ -390,12 +472,16 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           : payload.data.receiver
 
         const nextConversation = {
+          id: getConversationId(participant.id, payload.data.community_post_id ? { id: payload.data.community_post_id } : null, payload.data.item_id),
           participant,
+          community_post_id: payload.data.community_post_id,
+          item_id: payload.data.item_id,
+          related_item: payload.data.related_item,
           latest_message: payload.data,
           unread_count: 0,
         }
 
-      const filtered = current.filter((conversation) => conversation.participant?.id !== participant?.id)
+      const filtered = current.filter((conversation) => conversation.id !== nextConversation.id)
       return [nextConversation, ...filtered]
       })
       handleTypingStateChange(receiverId, false)
@@ -404,6 +490,63 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       throw error
     } finally {
       setSendingMessage(false)
+    }
+  }
+
+  const handleDeleteMessage = async (message) => {
+    if (!message?.id || message.sender?.id !== user.id) return
+
+    setMessageError('')
+
+    try {
+      const payload = await apiRequest(`/messages/${message.id}`, {
+        method: 'DELETE',
+        token,
+      })
+
+      const deletedMessage = payload.data
+
+      setActiveConversationMessages((current) =>
+        current.map((entry) => (entry.id === deletedMessage.id ? deletedMessage : entry)),
+      )
+
+      setMessageConversations((current) =>
+        current.map((conversation) => (
+          conversation.latest_message?.id === deletedMessage.id
+            ? { ...conversation, latest_message: deletedMessage }
+            : conversation
+        )),
+      )
+    } catch (error) {
+      setMessageError(error.payload?.message ?? 'Failed to delete the message.')
+    }
+  }
+
+  const handleDeleteConversation = async (conversation) => {
+    const participantId = conversation?.participant?.id
+    if (!participantId) return
+
+    setMessageError('')
+
+    try {
+      const params = new URLSearchParams()
+      if (conversation.community_post_id) params.set('community_post_id', conversation.community_post_id)
+      if (conversation.item_id) params.set('item_id', conversation.item_id)
+
+      await apiRequest(`/messages/conversations/${participantId}${params.toString() ? `?${params.toString()}` : ''}`, {
+        method: 'DELETE',
+        token,
+      })
+
+      setMessageConversations((current) => current.filter((entry) => entry.id !== conversation.id))
+
+      if (activeConversation?.id === conversation.id) {
+        setActiveConversation(null)
+        setActiveConversationMessages([])
+        setSelectedMessageItem(null)
+      }
+    } catch (error) {
+      setMessageError(error.payload?.message ?? 'Failed to delete the conversation.')
     }
   }
 
@@ -444,6 +587,52 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
 
   }
 
+  const handlePostUpdated = (payload) => {
+    const updatedPost = payload?.post ?? payload
+
+    if (!updatedPost?.id) return
+
+    const replacePost = (items) =>
+      items.map((item) => (item.id === updatedPost.id ? updatedPost : item))
+
+    setCommunityPosts(replacePost)
+    setMyItems(replacePost)
+    setApprovedItems((current) => {
+      const withoutUpdated = current.filter((item) => item.id !== updatedPost.id)
+      const shouldShowAsApprovedItem =
+        updatedPost.status === 'approved'
+        && ['lost', 'found'].includes(updatedPost.post_type ?? updatedPost.type)
+
+      return shouldShowAsApprovedItem ? [updatedPost, ...withoutUpdated] : withoutUpdated
+    })
+    savedPostsState.replaceSavedPost?.(updatedPost)
+  }
+
+  const handleDeletePost = async (post) => {
+    if (!post?.id) return
+
+    const confirmed = window.confirm(`Delete "${post.title || 'this post'}"? This cannot be undone.`)
+    if (!confirmed) return
+
+    setDeletingPostId(post.id)
+
+    try {
+      await apiRequest(`/community-posts/${post.id}`, {
+        method: 'DELETE',
+        token,
+      })
+
+      setCommunityPosts((current) => current.filter((item) => item.id !== post.id))
+      setMyItems((current) => current.filter((item) => item.id !== post.id))
+      setApprovedItems((current) => current.filter((item) => item.id !== post.id))
+      savedPostsState.removeSavedPost?.(post.id)
+    } catch (error) {
+      window.alert(error.payload?.message ?? 'Failed to delete the post.')
+    } finally {
+      setDeletingPostId(null)
+    }
+  }
+
   const handleSubmitClaim = async (claimValues) => {
     setSubmittingClaim(true)
 
@@ -462,6 +651,114 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     } finally {
       setSubmittingClaim(false)
     }
+  }
+
+  const handleUpdateClaim = async (claimId, values) => {
+    setSavingClaimId(claimId)
+
+    try {
+      const payload = await apiRequest(`/claims/${claimId}`, {
+        method: 'PATCH',
+        token,
+        body: values,
+      })
+
+      setMyClaims((current) =>
+        current.map((claim) => (claim.id === payload.claim.id ? payload.claim : claim)),
+      )
+
+      return payload
+    } finally {
+      setSavingClaimId(null)
+    }
+  }
+
+  const handleWithdrawClaim = async (claim) => {
+    if (!claim?.id) return
+
+    setSavingClaimId(claim.id)
+
+    try {
+      await apiRequest(`/claims/${claim.id}`, {
+        method: 'DELETE',
+        token,
+      })
+
+      setMyClaims((current) => current.filter((currentClaim) => currentClaim.id !== claim.id))
+    } finally {
+      setSavingClaimId(null)
+    }
+  }
+
+  const handleMarkClaimReturned = async (claim) => {
+    if (!claim?.id) return
+
+    setSavingClaimId(claim.id)
+
+    try {
+      const payload = await apiRequest(`/claims/${claim.id}/return`, {
+        method: 'PATCH',
+        token,
+      })
+      const updatedClaim = payload.claim
+      const returnedPost = updatedClaim?.community_post
+
+      if (updatedClaim?.id) {
+        setMyClaims((current) =>
+          current.map((currentClaim) => (
+            currentClaim.id === updatedClaim.id ? updatedClaim : currentClaim
+          )),
+        )
+      }
+
+      if (returnedPost?.id) {
+        const replaceReturnedPost = (items) =>
+          items.map((item) => {
+            if (item.id !== returnedPost.id) return item
+
+            const claims = Array.isArray(item.claims)
+              ? item.claims.map((claim) => (
+                  claim.id === updatedClaim.id ? updatedClaim : claim
+                ))
+              : []
+
+            return {
+              ...item,
+              ...returnedPost,
+              claims,
+            }
+          })
+
+        setCommunityPosts((current) => current.filter((item) => item.id !== returnedPost.id))
+        setApprovedItems((current) => current.filter((item) => item.id !== returnedPost.id))
+        setMyItems(replaceReturnedPost)
+        savedPostsState.replaceSavedPost?.(returnedPost)
+      }
+
+      if (payload.notification) {
+        setNotificationItems((current) => [payload.notification, ...current].slice(0, 20))
+      }
+
+      return payload
+    } finally {
+      setSavingClaimId(null)
+    }
+  }
+
+  const handleNotificationClick = (notification) => {
+    closeMenus()
+
+    if (notification.type === 'claim_received') {
+      navigate('/community?section=my-found')
+      return
+    }
+
+    if (notification.type?.startsWith('claim_')) {
+      navigate('/community?section=my-claims')
+      return
+    }
+
+    navigate('/community')
   }
 
   const menuItems = dashboardMenuItems
@@ -491,33 +788,61 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       map.set(participant.id, participant)
     })
 
+    myItems.forEach((post) => {
+      if ((post.post_type ?? post.type) !== 'found' || !Array.isArray(post.claims)) return
+
+      post.claims.forEach((claim) => {
+        const claimant = claim.user
+        if (!claimant || claimant.id === user.id || map.has(claimant.id)) return
+        map.set(claimant.id, claimant)
+      })
+    })
+
     return Array.from(map.values())
-  }, [communityPosts, messageConversations, user.id])
-  const handleStartMessage = (targetUser) => {
-    if (!targetUser?.id || targetUser.id === user.id) return
-    void handleOpenConversation(targetUser)
+  }, [communityPosts, messageConversations, myItems, user.id])
+  const handleStartMessage = (targetUser, relatedPost = null) => {
+    if (!targetUser?.id || Number(targetUser.id) === Number(user.id)) return
+    void handleOpenConversation(targetUser, relatedPost)
   }
 
   useEffect(() => {
     if (activePage !== 'messages') return
 
     const requestedUserId = Number(searchParams.get('user'))
+    const requestedPostId = Number(searchParams.get('community_post_id'))
+    const requestedItemId = Number(searchParams.get('item_id'))
+    const requestedConversationId = requestedUserId
+      ? getConversationId(
+        requestedUserId,
+        requestedPostId ? { id: requestedPostId } : null,
+        requestedItemId || null,
+      )
+      : null
 
-    if (requestedUserId && activeConversation?.participant?.id !== requestedUserId) {
+    if (requestedUserId && activeConversation?.id !== requestedConversationId) {
       const requestedParticipant =
         messageConversations.find((conversation) => conversation.participant?.id === requestedUserId)?.participant
         ?? contactUsers.find((contact) => contact.id === requestedUserId)
+      const requestedConversation = messageConversations.find((conversation) => (
+        conversation.participant?.id === requestedUserId
+        && (!requestedPostId || Number(conversation.community_post_id) === requestedPostId)
+        && (!requestedItemId || Number(conversation.item_id) === requestedItemId)
+      ))
+      const requestedPost = requestedPostId
+        ? [...communityPosts, ...approvedItems, ...myItems].find((post) => Number(post.id) === requestedPostId)
+        : requestedConversation?.related_item
 
       if (requestedParticipant) {
-        void handleOpenConversation(requestedParticipant)
+        void openConversationRef.current?.(requestedParticipant, requestedPost ?? null, requestedConversation ?? null)
       }
       return
     }
 
-    if (!requestedUserId && !activeConversation && contactUsers.length > 0) {
-      void handleOpenConversation(contactUsers[0])
+    if (!requestedUserId && !activeConversation && messageConversations.length > 0) {
+      const firstConversation = messageConversations[0]
+      void openConversationRef.current?.(firstConversation.participant, firstConversation.related_item ?? null, firstConversation)
     }
-  }, [activePage, activeConversation, contactUsers, messageConversations, searchParams])
+  }, [activePage, activeConversation, approvedItems, communityPosts, contactUsers, messageConversations, myItems, searchParams])
 
   const handleMarkNotificationsRead = async () => {
     setNotificationItems((current) =>
@@ -584,30 +909,39 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       const participant = nextMessage.sender?.id === user.id
         ? nextMessage.receiver
         : nextMessage.sender
+      const nextConversationId = getConversationId(
+        participant.id,
+        nextMessage.community_post_id ? { id: nextMessage.community_post_id } : null,
+        nextMessage.item_id,
+      )
 
       if (!participant?.id) {
         return
       }
 
       setMessageConversations((current) => {
-        const existing = current.find((conversation) => conversation.participant?.id === participant.id)
-        const unreadCount = nextMessage.receiver?.id === user.id && activeConversationRef.current?.participant?.id !== participant.id
+        const existing = current.find((conversation) => conversation.id === nextConversationId)
+        const unreadCount = nextMessage.receiver?.id === user.id && activeConversationRef.current?.id !== nextConversationId
           ? (existing?.unread_count ?? 0) + 1
           : 0
 
         const nextConversation = {
+          id: nextConversationId,
           participant,
+          community_post_id: nextMessage.community_post_id,
+          item_id: nextMessage.item_id,
+          related_item: nextMessage.related_item,
           latest_message: nextMessage,
           unread_count: unreadCount,
         }
 
         return [
           nextConversation,
-          ...current.filter((conversation) => conversation.participant?.id !== participant.id),
+          ...current.filter((conversation) => conversation.id !== nextConversationId),
         ]
       })
 
-      if (activeConversationRef.current?.participant?.id === participant.id) {
+      if (activeConversationRef.current?.id === nextConversationId) {
         setActiveConversationMessages((current) => {
           if (current.some((entry) => entry.id === nextMessage.id)) {
             return current
@@ -617,6 +951,24 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         })
         setTypingParticipantId(null)
       }
+    })
+
+    userChannel.listen('.message.deleted', (payload) => {
+      const deletedMessage = payload.message
+
+      if (!deletedMessage?.id) return
+
+      setActiveConversationMessages((current) =>
+        current.map((message) => (message.id === deletedMessage.id ? deletedMessage : message)),
+      )
+
+      setMessageConversations((current) =>
+        current.map((conversation) => (
+          conversation.latest_message?.id === deletedMessage.id
+            ? { ...conversation, latest_message: deletedMessage }
+            : conversation
+        )),
+      )
     })
 
     userChannel.listen('.message.read', (payload) => {
@@ -646,16 +998,28 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
 
     const presenceChannel = echo.join(getPresenceChannelName())
 
-    presenceChannel.here((members) => {
-      setOnlineUserIds(members.map((member) => member.id))
+    presenceChannel.here((members = []) => {
+      setOnlineUserIds(normalizePresenceIds(members.map((member) => member.id)))
     })
 
     presenceChannel.joining((member) => {
-      setOnlineUserIds((current) => (current.includes(member.id) ? current : [...current, member.id]))
+      const memberId = Number(member.id)
+
+      if (!Number.isFinite(memberId)) {
+        return
+      }
+
+      setOnlineUserIds((current) => normalizePresenceIds([...current, memberId]))
     })
 
     presenceChannel.leaving((member) => {
-      setOnlineUserIds((current) => current.filter((id) => id !== member.id))
+      const memberId = Number(member.id)
+
+      if (!Number.isFinite(memberId)) {
+        return
+      }
+
+      setOnlineUserIds((current) => normalizePresenceIds(current).filter((id) => id !== memberId))
     })
 
     return () => {
@@ -723,6 +1087,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           setProfileOpen(false)
         }}
         unreadNotifications={unreadNotifications}
+        onNotificationClick={handleNotificationClick}
       />
       <main className="dashboard-main">
         <DashboardContent
@@ -741,10 +1106,17 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           messageConversations={messageConversations}
           activeConversation={activeConversation}
           activeConversationMessages={activeConversationMessages}
+          selectedMessageItem={selectedMessageItem}
           onOpenConversation={handleOpenConversation}
           onSendMessage={handleSendMessage}
+          onDeleteMessage={handleDeleteMessage}
+          onDeleteConversation={handleDeleteConversation}
           onTypingStateChange={handleTypingStateChange}
           onSubmitClaim={handleSubmitClaim}
+          onUpdateClaim={handleUpdateClaim}
+          onWithdrawClaim={handleWithdrawClaim}
+          onMarkClaimReturned={handleMarkClaimReturned}
+          savingClaimId={savingClaimId}
           submittingClaim={submittingClaim}
           sendingMessage={sendingMessage}
           loadingConversation={loadingConversation}
@@ -752,6 +1124,10 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           onStartMessage={handleStartMessage}
           onlineUserIds={onlineUserIds}
           typingParticipantId={typingParticipantId}
+          savedPostsState={savedPostsState}
+          onDeletePost={handleDeletePost}
+          onUpdatePost={handlePostUpdated}
+          deletingPostId={deletingPostId}
         />
       </main>
       <Footer />

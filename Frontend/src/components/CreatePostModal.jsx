@@ -4,27 +4,55 @@ import LocationPicker from './LocationPicker'
 import { ACCEPTED_FILE_TYPES, MAX_FILE_SIZE } from '../utils/constants'
 import { apiRequest } from '../services/api'
 
+const defaultPostValues = {
+  postType: 'community',
+  content: '',
+  itemTitle: '',
+  categoryId: '',
+  location: '',
+  latitude: '',
+  longitude: '',
+  itemDate: '',
+}
+
+const emptyImageState = {
+  file: null,
+  preview: '',
+  isObjectUrl: false,
+  removeExisting: false,
+}
+
+function getPostValues(post) {
+  const postType = post?.post_type ?? post?.type ?? 'community'
+
+  return {
+    postType,
+    content: post?.content ?? post?.description ?? '',
+    itemTitle: post?.title ?? post?.itemTitle ?? '',
+    categoryId: post?.category?.id ? String(post.category.id) : '',
+    location: post?.location ?? '',
+    latitude: post?.latitude ?? '',
+    longitude: post?.longitude ?? '',
+    itemDate: post?.item_date ?? post?.itemDate ?? '',
+  }
+}
+
 function CreatePostModal({
   open,
   onClose,
   token,
   categories,
   onCreatePost,
+  onUpdatePost,
+  mode = 'create',
+  post = null,
 }) {
-  const [values, setValues] = useState({
-    postType: 'community',
-    content: '',
-    itemTitle: '',
-    categoryId: '',
-    location: '',
-    latitude: '',
-    longitude: '',
-    itemDate: '',
-  })
-  const [imageState, setImageState] = useState({ file: null, preview: '' })
+  const [values, setValues] = useState(defaultPostValues)
+  const [imageState, setImageState] = useState(emptyImageState)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef(null)
+  const isEditing = mode === 'edit' && post?.id
 
   useEffect(() => {
     if (!open) return undefined
@@ -41,22 +69,37 @@ function CreatePostModal({
 
   useEffect(() => {
     if (!open) {
-      if (imageState.preview) URL.revokeObjectURL(imageState.preview)
-      setImageState({ file: null, preview: '' })
-      setValues({
-        postType: 'community',
-        content: '',
-        itemTitle: '',
-        categoryId: '',
-        location: '',
-        latitude: '',
-        longitude: '',
-        itemDate: '',
+      setValues(defaultPostValues)
+      setImageState(emptyImageState)
+      setError('')
+      setSubmitting(false)
+      return
+    }
+
+    if (isEditing) {
+      setValues(getPostValues(post))
+      setImageState({
+        file: null,
+        preview: post.image_url ?? post.imageUrl ?? '',
+        isObjectUrl: false,
+        removeExisting: false,
       })
       setError('')
       setSubmitting(false)
+      return
     }
-  }, [open])
+
+    setValues(defaultPostValues)
+    setImageState(emptyImageState)
+    setError('')
+    setSubmitting(false)
+  }, [isEditing, open, post])
+
+  useEffect(() => () => {
+    if (imageState.isObjectUrl && imageState.preview) {
+      URL.revokeObjectURL(imageState.preview)
+    }
+  }, [imageState.isObjectUrl, imageState.preview])
 
   if (!open) return null
 
@@ -84,8 +127,13 @@ function CreatePostModal({
     }
 
     setImageState((current) => {
-      if (current.preview) URL.revokeObjectURL(current.preview)
-      return { file, preview: URL.createObjectURL(file) }
+      if (current.isObjectUrl && current.preview) URL.revokeObjectURL(current.preview)
+      return {
+        file,
+        preview: URL.createObjectURL(file),
+        isObjectUrl: true,
+        removeExisting: false,
+      }
     })
   }
 
@@ -118,16 +166,28 @@ function CreatePostModal({
         formData.append('image', imageState.file)
       }
 
-      const payload = await apiRequest('/community-posts', {
+      if (isEditing && imageState.removeExisting) {
+        formData.append('remove_image', '1')
+      }
+
+      if (isEditing) {
+        formData.append('_method', 'PATCH')
+      }
+
+      const payload = await apiRequest(isEditing ? `/community-posts/${post.id}` : '/community-posts', {
         method: 'POST',
         token,
         body: formData,
       })
 
-      onCreatePost(payload)
+      if (isEditing) {
+        onUpdatePost?.(payload)
+      } else {
+        onCreatePost(payload)
+      }
       onClose()
     } catch (requestError) {
-      setError(requestError.payload?.message ?? 'Failed to create post.')
+      setError(requestError.payload?.message ?? (isEditing ? 'Failed to update post.' : 'Failed to create post.'))
     } finally {
       setSubmitting(false)
     }
@@ -146,8 +206,8 @@ function CreatePostModal({
         >
           <div className="community-modal-top">
             <div>
-              <h2 id="create-post-title">Create Community Post</h2>
-              <p>Share a lost item, found item, or community update.</p>
+              <h2 id="create-post-title">{isEditing ? 'Edit Post' : 'Create Community Post'}</h2>
+              <p>{isEditing ? 'Update your post details for the community.' : 'Share a lost item, found item, or community update.'}</p>
             </div>
             <button type="button" className="modal-close-button" onClick={onClose}>
               <Icon name="close" />
@@ -252,15 +312,22 @@ function CreatePostModal({
                     <div className="upload-preview">
                       <img src={imageState.preview} alt="Post preview" />
                       <div className="upload-preview-meta">
-                        <strong>{imageState.file?.name}</strong>
-                        <span>{Math.round((imageState.file?.size ?? 0) / 1024)} KB</span>
+                        <strong>{imageState.file?.name ?? 'Current post image'}</strong>
+                        {imageState.file ? <span>{Math.round(imageState.file.size / 1024)} KB</span> : null}
                         <button
                           type="button"
                           className="upload-remove"
                           onClick={(event) => {
                             event.stopPropagation()
-                            if (imageState.preview) URL.revokeObjectURL(imageState.preview)
-                            setImageState({ file: null, preview: '' })
+                            if (imageState.isObjectUrl && imageState.preview) {
+                              URL.revokeObjectURL(imageState.preview)
+                            }
+                            setImageState({
+                              file: null,
+                              preview: '',
+                              isObjectUrl: false,
+                              removeExisting: true,
+                            })
                           }}
                         >
                           Remove
@@ -288,7 +355,7 @@ function CreatePostModal({
                 Cancel
               </button>
               <button type="submit" className="quick-action-button" disabled={submitting}>
-                {submitting ? 'Posting...' : 'Post'}
+                {submitting ? (isEditing ? 'Saving...' : 'Posting...') : isEditing ? 'Save Changes' : 'Post'}
               </button>
             </div>
           </form>

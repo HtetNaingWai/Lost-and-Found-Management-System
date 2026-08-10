@@ -16,8 +16,14 @@ class Message extends Model
         'sender_id',
         'receiver_id',
         'item_id',
+        'community_post_id',
         'message',
+        'attachment_path',
+        'attachment_type',
+        'attachment_name',
         'is_read',
+        'read_at',
+        'deleted_at',
     ];
 
     /**
@@ -29,6 +35,8 @@ class Message extends Model
     {
         return [
             'is_read' => 'boolean',
+            'read_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
     }
 
@@ -45,5 +53,10 @@ class Message extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
+    }
+
+    public function communityPost(): BelongsTo
+    {
+        return $this->belongsTo(CommunityPost::class);
     }
 }

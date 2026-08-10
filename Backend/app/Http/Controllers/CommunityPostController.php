@@ -8,6 +8,7 @@ use App\Services\NotificationService;
 use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class CommunityPostController extends Controller
 {
@@ -23,15 +24,7 @@ class CommunityPostController extends Controller
             ->latest();
 
         if ($user->role !== 'admin') {
-            $query->where(function ($builder) use ($user) {
-                $builder
-                    ->whereIn('status', ['pending', 'approved', 'claimed', 'returned'])
-                    ->orWhere(function ($rejectedQuery) use ($user) {
-                        $rejectedQuery
-                            ->where('status', 'rejected')
-                            ->where('user_id', $user->id);
-                    });
-            });
+            $query->where('status', 'approved');
         }
 
         return response()->json([
@@ -152,6 +145,108 @@ class CommunityPostController extends Controller
 
         return response()->json([
             'post' => $this->transformPost($communityPost->load([
+                'user:id,name,email,profile_image',
+                'category:id,name',
+                'approvedBy:id,name',
+                'claims.user:id,name,email,profile_image',
+                'claims.reviewedBy:id,name',
+            ])),
+        ]);
+    }
+
+    public function destroy(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        $user = $request->user();
+
+        abort_unless($user->role === 'admin' || $communityPost->user_id === $user->id, 403);
+
+        if ($communityPost->image) {
+            Storage::disk('public')->delete($communityPost->image);
+        }
+
+        $communityPost->delete();
+
+        return response()->json([
+            'message' => 'Post deleted successfully.',
+        ]);
+    }
+
+    public function update(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        $user = $request->user();
+
+        abort_unless($user->role === 'admin' || $communityPost->user_id === $user->id, 403);
+
+        $validated = $request->validate([
+            'post_type' => ['required', 'in:community,lost,found'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'content' => ['required', 'string'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'item_date' => ['nullable', 'date'],
+            'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
+        ]);
+
+        $isItemPost = in_array($validated['post_type'], ['lost', 'found'], true);
+
+        if ($isItemPost) {
+            $request->validate([
+                'title' => ['required', 'string', 'max:255'],
+                'location' => ['required', 'string', 'max:255'],
+                'latitude' => ['required', 'numeric', 'between:-90,90'],
+                'longitude' => ['required', 'numeric', 'between:-180,180'],
+                'item_date' => ['required', 'date'],
+            ]);
+        }
+
+        $imagePath = $communityPost->image;
+
+        if ($request->boolean('remove_image') && $imagePath) {
+            Storage::disk('public')->delete($imagePath);
+            $imagePath = null;
+        }
+
+        if ($request->hasFile('image')) {
+            if ($imagePath) {
+                Storage::disk('public')->delete($imagePath);
+            }
+
+            $imagePath = $request->file('image')->store('community-posts', 'public');
+        }
+
+        $updates = [
+            'post_type' => $validated['post_type'],
+            'title' => $validated['title'] ?? ($isItemPost ? null : 'Community Post'),
+            'content' => $validated['content'],
+            'category_id' => $isItemPost ? ($validated['category_id'] ?? null) : null,
+            'location' => $isItemPost ? ($validated['location'] ?? null) : null,
+            'latitude' => $isItemPost ? ($validated['latitude'] ?? null) : null,
+            'longitude' => $isItemPost ? ($validated['longitude'] ?? null) : null,
+            'item_date' => $isItemPost ? ($validated['item_date'] ?? null) : null,
+            'image' => $imagePath,
+        ];
+
+        if ($user->role !== 'admin') {
+            $updates = array_merge($updates, [
+                'status' => 'pending',
+                'admin_note' => null,
+                'approved_by' => null,
+                'approved_at' => null,
+                'rejected_at' => null,
+                'returned_at' => null,
+            ]);
+        }
+
+        $communityPost->update($updates);
+
+        return response()->json([
+            'message' => $user->role === 'admin'
+                ? 'Post updated successfully.'
+                : 'Post updated successfully and is pending admin review.',
+            'post' => $this->transformPost($communityPost->fresh([
                 'user:id,name,email,profile_image',
                 'category:id,name',
                 'approvedBy:id,name',

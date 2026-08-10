@@ -62,13 +62,14 @@ export const adminDashboardMenuItems = [
 
 export const profileDropdownItems = [
   { key: 'profile', label: 'My Profile', icon: 'userCircle', path: '/profile' },
-  { key: 'my-items', label: 'My Items', icon: 'inventory', path: '/lost-items' },
+  { key: 'my-posts', label: 'My Posts', icon: 'inventory', path: '/community?section=my-posts' },
   { key: 'my-claims', label: 'My Claims', icon: 'clipboard', path: '/community?section=my-claims' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]
 
 export const adminProfileDropdownItems = [
-  { key: 'profile', label: 'Admin Profile', icon: 'userCircle', path: '/admin' },
+  { key: 'profile', label: 'Admin Profile', icon: 'userCircle', path: '/admin/profile' },
+  { key: 'settings', label: 'Settings', icon: 'settings', path: '/admin/settings' },
   { key: 'users', label: 'Manage Users', icon: 'group', path: '/admin/users' },
   { key: 'admin-lost-items', label: 'Manage Lost Items', icon: 'search', path: '/admin/lost-items' },
   { key: 'admin-found-items', label: 'Manage Found Items', icon: 'inventory', path: '/admin/found-items' },

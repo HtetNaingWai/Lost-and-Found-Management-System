@@ -14,6 +14,52 @@
   margin: 0 auto;
 }
 
+.community-reports-section {
+  scroll-margin-top: 112px;
+}
+
+.community-view-all-row {
+  width: min(100%, 800px);
+  display: flex;
+  justify-content: center;
+  margin: 18px auto 0;
+}
+
+.community-view-all-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+}
+
+.community-view-all-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 103, 40, 0.26);
+  color: #146728;
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
+}
+
+.community-view-all-button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
 .community-layout-grid {
   display: grid;
   grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
@@ -297,9 +343,329 @@
   fill: currentColor;
 }
 
+.liquid-glass-action,
+.community-view-detail-action {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.12)),
+    rgba(17, 24, 39, 0.68);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 14px 30px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.liquid-glass-action::before,
+.community-view-detail-action::before {
+  content: '';
+  position: absolute;
+  inset: 1px auto auto 12%;
+  width: 52%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.liquid-glass-action:hover,
+.community-view-detail-action:hover {
+  border-color: rgba(255, 255, 255, 0.62);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.16)),
+    rgba(17, 24, 39, 0.76);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 18px 36px rgba(15, 23, 42, 0.24);
+}
+
+.community-edit-action {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.community-edit-action:hover {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.community-delete-action {
+  border-color: #fecaca;
+  background: #fff7f7;
+  color: #b91c1c;
+}
+
+.community-delete-action:hover {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .community-claim-list {
   display: grid;
   gap: 12px;
+}
+
+.claim-card,
+.my-found-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+}
+
+.claim-card {
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: start;
+}
+
+.claim-card-image {
+  width: 100%;
+  min-height: 132px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #f1f5f9;
+  color: #146728;
+}
+
+.claim-card-image img {
+  width: 100%;
+  height: 100%;
+  min-height: 132px;
+  object-fit: cover;
+  display: block;
+}
+
+.claim-card-image svg {
+  width: 42px;
+  height: 42px;
+  fill: currentColor;
+}
+
+.claim-card-copy,
+.my-found-summary,
+.my-found-claim-row {
+  min-width: 0;
+}
+
+.claim-card-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.claim-card-heading,
+.my-found-summary,
+.my-found-claim-row,
+.my-found-claim-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.claim-card-heading {
+  justify-content: space-between;
+}
+
+.claim-card-heading h3,
+.my-found-summary h3 {
+  margin: 0 0 4px;
+  color: #111827;
+  font-size: 20px;
+}
+
+.claim-card-heading p,
+.claim-card-evidence,
+.my-found-summary p,
+.my-found-claim-row p {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.claim-card-evidence,
+.my-found-claim-row p {
+  font-size: 14px;
+}
+
+.claim-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.claim-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.claim-detail-modal {
+  width: min(100%, 880px);
+}
+
+.claim-detail-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.claim-detail-layout .claim-card-image {
+  min-height: 180px;
+}
+
+.claim-detail-layout .claim-card-image img {
+  min-height: 180px;
+}
+
+.claim-detail-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.claim-detail-copy h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 26px;
+}
+
+.claim-detail-copy p {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.claim-detail-meta,
+.claim-info-grid,
+.claim-timeline {
+  display: grid;
+  gap: 12px;
+}
+
+.claim-detail-meta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.claim-detail-meta span {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.claim-info-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.claim-timeline {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.claim-timeline-step {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.claim-timeline-step i {
+  width: 18px;
+  height: 18px;
+  display: block;
+  border: 3px solid #e5e7eb;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.claim-timeline-step.is-active {
+  color: #146728;
+}
+
+.claim-timeline-step.is-active i {
+  border-color: #146728;
+  background: #dcfce7;
+}
+
+.claim-confirm-modal {
+  width: min(100%, 520px);
+}
+
+.claim-danger-button {
+  background: #b91c1c;
+  box-shadow: 0 12px 24px rgba(185, 28, 28, 0.2);
+}
+
+.claim-danger-button:hover {
+  background: #991b1b;
+}
+
+.my-found-list {
+  display: grid;
+  gap: 14px;
+}
+
+.my-found-summary {
+  align-items: center;
+}
+
+.my-found-summary .claim-card-image {
+  width: 140px;
+  flex: 0 0 140px;
+}
+
+.my-found-summary small,
+.my-found-claim-row small,
+.community-empty-inline {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.my-found-claims {
+  display: grid;
+  gap: 10px;
+}
+
+.my-found-claim-row {
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.my-found-claim-row strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #111827;
+}
+
+.my-found-claim-actions {
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.community-empty-inline {
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f8fafc;
 }
 
 .community-claim-copy {
@@ -430,7 +796,7 @@
 }
 
 .post-detail-modal {
-  width: min(100%, 920px);
+  width: min(100%, 980px);
 }
 
 .post-detail-body {
@@ -439,15 +805,22 @@
 }
 
 .post-detail-image-wrap {
+  position: relative;
   overflow: hidden;
-  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, #f8fafc, #eef2f7),
+    #f8fafc;
+  box-shadow: inset 0 -18px 40px rgba(15, 23, 42, 0.05);
 }
 
 .post-detail-image {
   width: 100%;
-  max-height: 420px;
-  object-fit: cover;
+  max-height: min(62vh, 560px);
+  object-fit: contain;
   display: block;
+  background: #ffffff;
 }
 
 .post-detail-grid {
@@ -458,14 +831,18 @@
 
 .post-detail-meta-card {
   padding: 16px 18px;
-  border-radius: 16px;
-  background: #f3f6f4;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.94)),
+    #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
   display: grid;
   gap: 6px;
 }
 
 .post-detail-meta-card strong {
-  color: #0d5f23;
+  color: #111827;
 }
 
 .community-modal-top {
@@ -474,6 +851,12 @@
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 20px;
+}
+
+.post-detail-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .community-modal-top h2 {
@@ -824,6 +1207,58 @@
   color: #1f2937;
 }
 
+.community-map-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.community-map-summary-chip {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.community-map-summary-chip strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.community-map-summary-chip.is-lost {
+  background: #fef2f2;
+  border-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.community-map-summary-chip.is-found {
+  background: #eff6ff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.community-map-content-grid {
+  display: grid;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.community-map-content-grid.has-recent-panel {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+}
+
+.community-map-panel.is-compact .community-map-content-grid {
+  grid-template-columns: 1fr;
+}
+
 .community-map-placeholder {
   position: relative;
   min-height: 315px;
@@ -882,13 +1317,30 @@
 
 .community-map-live-marker {
   position: relative;
-  display: block;
-  width: 28px;
-  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border: 3px solid #ffffff;
   border-radius: 50% 50% 50% 0;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
   transform: rotate(-45deg);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.community-map-live-marker svg {
+  width: 17px;
+  height: 17px;
+  fill: #ffffff;
+  transform: rotate(45deg);
+}
+
+.community-map-marker-shell:hover .community-map-live-marker {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.36);
+  transform: rotate(-45deg) scale(1.08);
 }
 
 .community-map-live-marker.is-lost {
@@ -901,22 +1353,32 @@
 
 .community-map-popup {
   display: grid;
-  gap: 8px;
-  min-width: 180px;
+  gap: 9px;
+  min-width: 210px;
   padding: 2px;
   color: #1f2937;
   font-family: 'Public Sans', system-ui, sans-serif;
 }
 
 .community-map-popup img {
-  width: 180px;
-  height: 110px;
+  width: 210px;
+  height: 116px;
   border-radius: 10px;
   object-fit: cover;
 }
 
+.community-map-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .community-map-popup strong {
   font-size: 14px;
+}
+
+.community-map-popup-title {
+  line-height: 1.35;
 }
 
 .community-map-popup p {
@@ -959,6 +1421,113 @@
 
 .community-map-popup button:hover {
   background: #f8f9f7;
+}
+
+.community-map-recent-panel {
+  min-height: 315px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.community-map-recent-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.community-map-recent-heading strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.community-map-recent-heading span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.community-map-recent-list {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.community-map-recent-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.community-map-recent-item:hover {
+  border-color: #e5e7eb;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.community-map-recent-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #ffffff;
+}
+
+.community-map-recent-icon.is-lost {
+  background: #dc2626;
+}
+
+.community-map-recent-icon.is-found {
+  background: #2563eb;
+}
+
+.community-map-recent-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.community-map-recent-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.community-map-recent-copy strong,
+.community-map-recent-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-map-recent-copy strong {
+  font-size: 13px;
+}
+
+.community-map-recent-copy small {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .community-map-grid {
@@ -1174,6 +1743,20 @@
     width: 100%;
   }
 
+  .community-map-summary-row {
+    gap: 8px;
+  }
+
+  .community-map-summary-chip {
+    flex: 1 1 120px;
+    justify-content: center;
+  }
+
+  .community-map-content-grid,
+  .community-map-content-grid.has-recent-panel {
+    grid-template-columns: 1fr;
+  }
+
   .community-map-placeholder {
     min-height: 260px;
   }
@@ -1181,6 +1764,23 @@
   .community-leaflet-map-wrap,
   .community-leaflet-map {
     min-height: 260px;
+  }
+
+  .community-map-recent-panel {
+    min-height: 0;
+  }
+
+  .community-map-recent-list {
+    grid-template-columns: 1fr;
+  }
+
+  .community-map-popup {
+    min-width: 190px;
+  }
+
+  .community-map-popup img {
+    width: 190px;
+    height: 104px;
   }
 
   .community-report-body.has-media {
@@ -1237,8 +1837,8 @@
 .community-post-card:hover,
 .recent-item-card:hover {
   transform: translateY(-6px);
-  border-color: rgba(225, 29, 46, 0.26);
-  box-shadow: 0 26px 50px rgba(225, 29, 46, 0.16);
+  border-color: rgba(148, 163, 184, 0.42);
+  box-shadow: 0 28px 58px rgba(15, 23, 42, 0.12);
 }
 
 .community-post-title,
@@ -1265,8 +1865,8 @@
 }
 
 .badge-lost {
-  background: rgba(225, 29, 46, 0.12);
-  color: var(--primary);
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
 }
 
 .badge-found {
@@ -1275,8 +1875,8 @@
 }
 
 .badge-approved {
-  background: rgba(244, 63, 94, 0.12);
-  color: #e11d48;
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
 }
 
 .badge-pending {

@@ -1,14 +1,34 @@
+import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import { formatDate } from '../utils/formatDate'
+import { resolveImageUrl } from '../utils/imageUrl'
 
-function CommunityPostCard({ post, onClick, onImageClick, isSaved, onToggleSave }) {
+function CommunityPostCard({
+  post,
+  onClick,
+  onImageClick,
+  isSaved,
+  onToggleSave,
+  savingSave = false,
+  canEdit = false,
+  onEdit,
+  canDelete = false,
+  onDelete,
+  deleting = false,
+}) {
+  const [imageFailed, setImageFailed] = useState(false)
   const postType = post.post_type ?? post.type
   const status = post.status ?? 'pending'
   const statusLabel = status.charAt(0).toUpperCase() + status.slice(1)
   const createdAt = post.created_at ?? post.createdAt
   const title = post.title ?? post.itemTitle
   const content = post.content ?? post.description
-  const imageUrl = post.image_url ?? post.imageUrl
+  const imageUrl = resolveImageUrl(post.image_url ?? post.imageUrl ?? post.image)
+  const shouldShowImage = imageUrl && !imageFailed
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [imageUrl])
   const itemDate = post.item_date ?? post.itemDate
   const profileImageUrl = post.user?.profile_image_url ?? post.user?.profileImageUrl
 
@@ -59,9 +79,10 @@ function CommunityPostCard({ post, onClick, onImageClick, isSaved, onToggleSave 
             className={`community-save-button${isSaved ? ' is-saved' : ''}`}
             onClick={(event) => {
               event.stopPropagation()
-              onToggleSave?.(post.id)
+              onToggleSave?.(post)
             }}
-            aria-label={isSaved ? 'Unsave post' : 'Save post'}
+            disabled={savingSave}
+            aria-label={isSaved ? 'Remove from saved posts' : 'Save post'}
           >
             <Icon name={isSaved ? 'bookmarkFilled' : 'bookmark'} />
           </button>
@@ -76,8 +97,8 @@ function CommunityPostCard({ post, onClick, onImageClick, isSaved, onToggleSave 
         </div>
       </div>
 
-      <div className={`community-report-body${imageUrl ? ' has-media' : ''}`}>
-        {imageUrl ? (
+      <div className={`community-report-body${shouldShowImage ? ' has-media' : ''}`}>
+        {shouldShowImage ? (
           <button
             type="button"
             className="community-post-image-button"
@@ -86,7 +107,13 @@ function CommunityPostCard({ post, onClick, onImageClick, isSaved, onToggleSave 
               onImageClick?.(imageUrl, title || 'Post attachment')
             }}
           >
-            <img className="community-post-image" src={imageUrl} alt={title || 'Post attachment'} />
+            <img
+              className="community-post-image"
+              src={imageUrl}
+              alt={title || 'Post attachment'}
+              loading="lazy"
+              onError={() => setImageFailed(true)}
+            />
           </button>
         ) : null}
 
@@ -123,15 +150,17 @@ function CommunityPostCard({ post, onClick, onImageClick, isSaved, onToggleSave 
               className={`secondary-action-button community-card-action${isSaved ? ' is-saved' : ''}`}
               onClick={(event) => {
                 event.stopPropagation()
-                onToggleSave?.(post.id)
+                onToggleSave?.(post)
               }}
+              disabled={savingSave}
+              aria-label={isSaved ? 'Remove from saved posts' : 'Save post'}
             >
               <Icon name={isSaved ? 'bookmarkFilled' : 'bookmark'} />
-              <span>{isSaved ? 'Saved' : 'Save Post'}</span>
+              <span>{savingSave ? 'Saving...' : isSaved ? 'Saved' : 'Save Post'}</span>
             </button>
             <button
               type="button"
-              className="secondary-action-button community-card-action"
+              className="secondary-action-button community-card-action community-view-detail-action liquid-glass-action"
               onClick={(event) => {
                 event.stopPropagation()
                 onClick?.()
@@ -140,6 +169,33 @@ function CommunityPostCard({ post, onClick, onImageClick, isSaved, onToggleSave 
               <Icon name="chat" />
               <span>View Details</span>
             </button>
+            {canEdit ? (
+              <button
+                type="button"
+                className="secondary-action-button community-card-action community-edit-action"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onEdit?.(post)
+                }}
+              >
+                <Icon name="document" />
+                <span>Edit</span>
+              </button>
+            ) : null}
+            {canDelete ? (
+              <button
+                type="button"
+                className="secondary-action-button community-card-action community-delete-action"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDelete?.(post)
+                }}
+                disabled={deleting}
+              >
+                <Icon name="close" />
+                <span>{deleting ? 'Deleting...' : 'Delete'}</span>
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

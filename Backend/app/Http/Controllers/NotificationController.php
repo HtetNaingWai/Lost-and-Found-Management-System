@@ -6,6 +6,7 @@ use App\Events\NotificationRead;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Services\NotificationService;
+use App\Services\RealtimeBroadcaster;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,7 +42,7 @@ class NotificationController extends Controller
                 'updated_at' => now(),
             ]);
 
-        event(new NotificationRead($user->id, [], true, now()->toISOString()));
+        RealtimeBroadcaster::dispatch(new NotificationRead($user->id, [], true, now()->toISOString()));
 
         return response()->json([
             'message' => 'Notifications marked as read.',
@@ -60,7 +61,7 @@ class NotificationController extends Controller
                 'read_at' => now(),
             ])->save();
 
-            event(new NotificationRead($user->id, [$notification->id], false, optional($notification->read_at)?->toISOString()));
+            RealtimeBroadcaster::dispatch(new NotificationRead($user->id, [$notification->id], false, optional($notification->read_at)?->toISOString()));
         }
 
         return response()->json([

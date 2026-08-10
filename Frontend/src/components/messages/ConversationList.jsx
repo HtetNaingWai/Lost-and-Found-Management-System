@@ -7,9 +7,13 @@ function ConversationList({
   searchValue,
   onSearchChange,
   activeParticipantId,
+  activeConversationId,
   onlineUserIds,
   onOpenConversation,
+  onDeleteConversation,
 }) {
+  const onlineIdSet = new Set(onlineUserIds.map((id) => Number(id)))
+
   return (
     <section className="messages-conversation-panel">
       <div className="messages-panel-heading">
@@ -42,11 +46,16 @@ function ConversationList({
         {conversations.length > 0 ? (
           conversations.map((conversation) => (
             <ConversationItem
-              key={conversation.participant?.id}
+              key={conversation.id ?? conversation.participant?.id}
               conversation={conversation}
-              isActive={activeParticipantId === conversation.participant?.id}
-              isOnline={onlineUserIds.includes(conversation.participant?.id)}
-              onClick={() => onOpenConversation(conversation.participant)}
+              isActive={
+                activeConversationId
+                  ? activeConversationId === conversation.id
+                  : activeParticipantId === conversation.participant?.id
+              }
+              isOnline={onlineIdSet.has(Number(conversation.participant?.id))}
+              onClick={() => onOpenConversation(conversation.participant, conversation.related_item ?? null, conversation)}
+              onDelete={() => onDeleteConversation?.(conversation)}
             />
           ))
         ) : (

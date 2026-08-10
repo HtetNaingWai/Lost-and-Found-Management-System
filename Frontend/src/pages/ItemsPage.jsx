@@ -11,7 +11,7 @@ function normalizeItemValue(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
-function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitClaim, submittingClaim }) {
+function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitClaim, submittingClaim, savedPostsState }) {
   const [selectedPost, setSelectedPost] = useState(null)
   const [searchValue, setSearchValue] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -29,6 +29,11 @@ function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitC
   })
   const filterRef = useRef(null)
   const navigate = useNavigate()
+  const {
+    isSaved = () => false,
+    toggleSaved = () => {},
+    savingPostId = null,
+  } = savedPostsState ?? {}
 
   useEffect(() => {
     setDraftFilters((current) => ({ ...current, itemType: type }))
@@ -156,6 +161,9 @@ function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitC
                 item={item}
                 type={type}
                 onClick={() => setSelectedPost(item)}
+                isSaved={isSaved(item.id)}
+                onToggleSave={toggleSaved}
+                savingSave={savingPostId === item.id}
               />
             ))}
           </div>
@@ -180,6 +188,9 @@ function ItemsPage({ type, items, user, onStartMessage, myClaims = [], onSubmitC
         existingClaim={myClaims.find((claim) => claim.community_post?.id === selectedPost?.id)}
         onSubmitClaim={onSubmitClaim}
         submittingClaim={submittingClaim}
+        isSaved={selectedPost ? isSaved(selectedPost.id) : false}
+        onToggleSave={selectedPost ? () => toggleSaved(selectedPost) : undefined}
+        savingSave={selectedPost ? savingPostId === selectedPost.id : false}
       />
     </>
   )

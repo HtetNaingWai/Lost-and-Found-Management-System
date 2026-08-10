@@ -1,22 +1,49 @@
+import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import { formatDate } from '../../utils/formatDate'
+import { resolveImageUrl } from '../../utils/imageUrl'
 
-function ItemCard({ item, type, onClick }) {
+function ItemCard({ item, type, onClick, isSaved = false, onToggleSave, savingSave = false }) {
+  const [imageFailed, setImageFailed] = useState(false)
+  const imageUrl = resolveImageUrl(item.image_url || item.image)
+  const shouldShowImage = imageUrl && !imageFailed
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [imageUrl])
+
   return (
     <article
       className="recent-item-card recent-item-card-interactive"
       onClick={onClick}
     >
       <div className="recent-item-image-wrap">
-        {item.image_url || item.image ? (
-          <img src={item.image_url || item.image} alt={item.title} />
+        <button
+          type="button"
+          className={`recent-item-save-button${isSaved ? ' is-saved' : ''}`}
+          disabled={savingSave}
+          aria-label={isSaved ? 'Remove from saved posts' : 'Save post'}
+          onClick={(event) => {
+            event.stopPropagation()
+            onToggleSave?.(item)
+          }}
+        >
+          <Icon name={isSaved ? 'bookmarkFilled' : 'bookmark'} />
+        </button>
+        {shouldShowImage ? (
+          <img
+            src={imageUrl}
+            alt={item.title}
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
           <div className="recent-item-image-placeholder">
             <Icon name={type === 'lost' ? 'search' : 'inventory'} />
           </div>
         )}
         <div className="recent-item-hover">
-          <span className="quick-action-button recent-item-hover-button">View Details</span>
+          <span className="quick-action-button recent-item-hover-button liquid-glass-action">View Details</span>
         </div>
       </div>
       <div className="recent-item-body">

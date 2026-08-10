@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DashboardPageShell from '../components/DashboardPageShell'
 import ChatWindow from '../components/messages/ChatWindow'
 import ConversationList from '../components/messages/ConversationList'
 import ItemDetailsSidebar from '../components/messages/ItemDetailsSidebar'
+import PostDetailModal from '../components/PostDetailModal'
 
 function MessagesPage({
   user,
   conversations,
   activeConversation,
   messages,
+  selectedMessageItem,
   itemSources,
   onOpenConversation,
   onSendMessage,
+  onDeleteMessage,
+  onDeleteConversation,
+  onMarkClaimReturned,
+  savingClaimId,
   onTypingStateChange,
   sendingMessage,
   loadingConversation,
@@ -20,21 +26,39 @@ function MessagesPage({
   typingParticipantId,
 }) {
   const [draftMessage, setDraftMessage] = useState('')
+  const [selectedAttachment, setSelectedAttachment] = useState(null)
+  const [detailPost, setDetailPost] = useState(null)
   const [conversationSearch, setConversationSearch] = useState('')
   const [mobileThreadOpen, setMobileThreadOpen] = useState(Boolean(activeConversation))
   const typingTimeoutRef = useRef(null)
   const threadEndRef = useRef(null)
+  const typingStateChangeRef = useRef(onTypingStateChange)
+
+  useEffect(() => {
+    typingStateChangeRef.current = onTypingStateChange
+  }, [onTypingStateChange])
+
+  const clearAttachment = useCallback(() => {
+    setSelectedAttachment((currentAttachment) => {
+      if (currentAttachment?.previewUrl) {
+        URL.revokeObjectURL(currentAttachment.previewUrl)
+      }
+
+      return null
+    })
+  }, [])
 
   useEffect(() => {
     setDraftMessage('')
+    clearAttachment()
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
       typingTimeoutRef.current = null
     }
     if (activeConversation?.participant?.id) {
-      onTypingStateChange?.(activeConversation.participant.id, false)
+      typingStateChangeRef.current?.(activeConversation.participant.id, false)
     }
-  }, [activeConversation?.participant?.id])
+  }, [activeConversation?.participant?.id, clearAttachment])
 
   useEffect(() => () => {
     if (typingTimeoutRef.current) {
@@ -42,13 +66,26 @@ function MessagesPage({
     }
   }, [])
 
+  useEffect(() => () => {
+    if (selectedAttachment?.previewUrl) {
+      URL.revokeObjectURL(selectedAttachment.previewUrl)
+    }
+  }, [selectedAttachment])
+
   const handleSubmit = async (event) => {
     event.preventDefault()
-    if (!activeConversation?.participant?.id || !draftMessage.trim()) return
+    if (!activeConversation?.participant?.id || (!draftMessage.trim() && !selectedAttachment)) return
 
-    await onSendMessage(activeConversation.participant.id, draftMessage.trim())
+    await onSendMessage(
+      activeConversation.participant.id,
+      draftMessage.trim(),
+      selectedAttachment?.file ?? null,
+      relatedItem,
+      activeConversation,
+    )
     onTypingStateChange?.(activeConversation.participant.id, false)
     setDraftMessage('')
+    clearAttachment()
   }
 
   const handleDraftChange = (event) => {
@@ -80,6 +117,27 @@ function MessagesPage({
     }, 1500)
   }
 
+  const handleAttachmentSelect = (file) => {
+    if (!file) return
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+
+    if (!allowedTypes.includes(file.type)) {
+      return
+    }
+
+    setSelectedAttachment((currentAttachment) => {
+      if (currentAttachment?.previewUrl) {
+        URL.revokeObjectURL(currentAttachment.previewUrl)
+      }
+
+      return {
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }
+    })
+  }
+
   const filteredConversations = useMemo(() => {
     const query = conversationSearch.trim().toLowerCase()
 
@@ -97,21 +155,30 @@ function MessagesPage({
     })
   }, [conversationSearch, conversations])
 
-  const relatedItem = useMemo(() => {
-    if (!activeConversation?.participant?.id) return null
+  let relatedItem = null
 
-    const messageItemId = [...messages]
-      .reverse()
-      .find((message) => message.item_id)?.item_id
+  if (activeConversation?.related_item) {
+    relatedItem = activeConversation.related_item
+  } else if (selectedMessageItem) {
+    const selectedOwnerId = selectedMessageItem.user?.id
+    const participantId = activeConversation?.participant?.id
 
-    if (messageItemId) {
-      const directMatch = itemSources.find((item) => Number(item.id) === Number(messageItemId))
-      if (directMatch) return directMatch
+    if (selectedOwnerId === user.id || selectedOwnerId === participantId) {
+      relatedItem = selectedMessageItem
     }
+  }
 
-    const participantId = activeConversation.participant.id
-    return itemSources.find((item) => item.user?.id === participantId) ?? null
-  }, [activeConversation, itemSources, messages])
+  if (!relatedItem && activeConversation?.participant?.id) {
+    const latestContextMessage = [...messages]
+      .reverse()
+      .find((message) => message.related_item || message.community_post_id || message.item_id)
+
+    relatedItem = latestContextMessage?.related_item ?? null
+
+    if (!relatedItem && latestContextMessage?.item_id) {
+      relatedItem = itemSources.find((item) => Number(item.id) === Number(latestContextMessage.item_id)) ?? null
+    }
+  }
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ block: 'end' })
@@ -126,11 +193,13 @@ function MessagesPage({
           searchValue={conversationSearch}
           onSearchChange={setConversationSearch}
           activeParticipantId={activeConversation?.participant?.id}
+          activeConversationId={activeConversation?.id}
           onlineUserIds={onlineUserIds}
-          onOpenConversation={(participant) => {
+          onOpenConversation={(participant, relatedPost, conversation) => {
             setMobileThreadOpen(true)
-            onOpenConversation(participant)
+            onOpenConversation(participant, relatedPost, conversation)
           }}
+          onDeleteConversation={onDeleteConversation}
         />
 
         <ChatWindow
@@ -140,6 +209,10 @@ function MessagesPage({
           draftMessage={draftMessage}
           onDraftChange={handleDraftChange}
           onSubmit={handleSubmit}
+          onDeleteMessage={onDeleteMessage}
+          selectedAttachment={selectedAttachment}
+          onAttachmentSelect={handleAttachmentSelect}
+          onAttachmentRemove={clearAttachment}
           onBack={() => setMobileThreadOpen(false)}
           sendingMessage={sendingMessage}
           loadingConversation={loadingConversation}
@@ -150,8 +223,25 @@ function MessagesPage({
           threadEndRef={threadEndRef}
         />
 
-        <ItemDetailsSidebar relatedItem={relatedItem} />
+        <ItemDetailsSidebar
+          relatedItem={relatedItem}
+          user={user}
+          activeConversation={activeConversation}
+          onViewItem={setDetailPost}
+          onMarkClaimReturned={onMarkClaimReturned}
+          savingClaimId={savingClaimId}
+        />
       </div>
+      {detailPost ? (
+        <PostDetailModal
+          post={detailPost}
+          user={user}
+          onClose={() => setDetailPost(null)}
+          onStartMessage={onOpenConversation}
+          onMarkClaimReturned={onMarkClaimReturned}
+          savingClaimId={savingClaimId}
+        />
+      ) : null}
     </DashboardPageShell>
   )
 }

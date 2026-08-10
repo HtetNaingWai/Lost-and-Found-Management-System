@@ -14,7 +14,13 @@ return new class extends Migration
             $table->dropUnique('claims_item_id_user_id_unique');
         });
 
-        DB::statement('ALTER TABLE claims MODIFY item_id BIGINT UNSIGNED NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE claims MODIFY item_id BIGINT UNSIGNED NULL');
+        } else {
+            Schema::table('claims', function (Blueprint $table) {
+                $table->unsignedBigInteger('item_id')->nullable()->change();
+            });
+        }
 
         Schema::table('claims', function (Blueprint $table) {
             $table->foreignId('community_post_id')
@@ -38,7 +44,13 @@ return new class extends Migration
             $table->dropConstrainedForeignId('community_post_id');
         });
 
-        DB::statement('ALTER TABLE claims MODIFY item_id BIGINT UNSIGNED NOT NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE claims MODIFY item_id BIGINT UNSIGNED NOT NULL');
+        } else {
+            Schema::table('claims', function (Blueprint $table) {
+                $table->unsignedBigInteger('item_id')->nullable(false)->change();
+            });
+        }
 
         Schema::table('claims', function (Blueprint $table) {
             $table->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();

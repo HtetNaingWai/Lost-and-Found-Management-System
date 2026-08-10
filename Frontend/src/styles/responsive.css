@@ -123,6 +123,15 @@
   .post-detail-grid {
     grid-template-columns: 1fr;
   }
+
+  .claim-card,
+  .claim-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .claim-detail-meta {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 860px) {
@@ -406,6 +415,21 @@
 
   .post-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .claim-info-grid,
+  .claim-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .my-found-summary,
+  .my-found-claim-row {
+    flex-direction: column;
+  }
+
+  .my-found-summary .claim-card-image {
+    width: 100%;
+    flex-basis: auto;
   }
 
   .community-modal-top h2 {

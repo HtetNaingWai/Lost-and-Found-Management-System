@@ -9,8 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement("ALTER TABLE community_posts MODIFY status ENUM('pending', 'approved', 'rejected', 'claimed', 'returned') NOT NULL DEFAULT 'pending'");
-        DB::statement("ALTER TABLE claims MODIFY status ENUM('pending', 'approved', 'rejected', 'returned') NOT NULL DEFAULT 'pending'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE community_posts MODIFY status ENUM('pending', 'approved', 'rejected', 'claimed', 'returned') NOT NULL DEFAULT 'pending'");
+            DB::statement("ALTER TABLE claims MODIFY status ENUM('pending', 'approved', 'rejected', 'returned') NOT NULL DEFAULT 'pending'");
+        }
 
         Schema::table('community_posts', function (Blueprint $table) {
             $table->timestamp('returned_at')->nullable()->after('rejected_at');
@@ -39,7 +41,9 @@ return new class extends Migration
             $table->dropColumn('returned_at');
         });
 
-        DB::statement("ALTER TABLE community_posts MODIFY status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending'");
-        DB::statement("ALTER TABLE claims MODIFY status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE community_posts MODIFY status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending'");
+            DB::statement("ALTER TABLE claims MODIFY status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending'");
+        }
     }
 };

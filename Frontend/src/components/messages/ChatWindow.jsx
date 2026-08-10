@@ -11,6 +11,10 @@ function ChatWindow({
   draftMessage,
   onDraftChange,
   onSubmit,
+  onDeleteMessage,
+  selectedAttachment,
+  onAttachmentSelect,
+  onAttachmentRemove,
   onBack,
   sendingMessage,
   loadingConversation,
@@ -35,13 +39,15 @@ function ChatWindow({
   }
 
   const participant = activeConversation.participant
-  const isOnline = onlineUserIds.includes(participant.id)
+  const isOnline = onlineUserIds.map((id) => Number(id)).includes(Number(participant.id))
+  const isTyping = typingParticipantId === participant.id
 
   return (
     <section className="messages-chat-panel">
       <ChatHeader
         participant={participant}
         isOnline={isOnline}
+        isTyping={isTyping}
         relatedItem={relatedItem}
         onBack={onBack}
       />
@@ -57,6 +63,7 @@ function ChatWindow({
               key={message.id}
               message={message}
               isOwn={message.sender?.id === user.id}
+              onDelete={onDeleteMessage}
             />
           ))
         ) : (
@@ -65,7 +72,7 @@ function ChatWindow({
             <span>Send the first message and keep the item details clear.</span>
           </div>
         )}
-        {typingParticipantId === participant.id ? (
+        {isTyping ? (
           <div className="messages-typing-indicator">Typing...</div>
         ) : null}
         <span ref={threadEndRef} aria-hidden="true" />
@@ -76,6 +83,9 @@ function ChatWindow({
         draftMessage={draftMessage}
         onDraftChange={onDraftChange}
         onSubmit={onSubmit}
+        selectedAttachment={selectedAttachment}
+        onAttachmentSelect={onAttachmentSelect}
+        onAttachmentRemove={onAttachmentRemove}
         sendingMessage={sendingMessage}
       />
     </section>

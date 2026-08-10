@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import BrandMark from '../components/BrandMark'
 import CommunityMap from '../components/CommunityMap'
@@ -6,15 +6,36 @@ import Icon from '../components/Icon'
 import { apiRequest } from '../services/api'
 import { formatDate } from '../utils/formatDate'
 
-const sidebarItems = [
-  { key: 'overview', label: 'Overview', icon: 'grid' },
-  { key: 'pending', label: 'Pending Posts', icon: 'clock' },
-  { key: 'lost', label: 'Lost Items', icon: 'search' },
-  { key: 'found', label: 'Found Items', icon: 'inventory' },
-  { key: 'users', label: 'Users', icon: 'group' },
-  { key: 'claims', label: 'Claims', icon: 'clipboard' },
-  { key: 'contact', label: 'Contact Messages', icon: 'mail' },
-  { key: 'notifications', label: 'Notifications', icon: 'bell' },
+const sidebarGroups = [
+  {
+    label: 'Dashboard',
+    items: [
+      { key: 'overview', label: 'Overview', icon: 'grid' },
+    ],
+  },
+  {
+    label: 'Content',
+    items: [
+      { key: 'pending', label: 'Pending Posts', icon: 'clock' },
+      { key: 'lost', label: 'Lost Items', icon: 'search' },
+      { key: 'found', label: 'Found Items', icon: 'inventory' },
+    ],
+  },
+  {
+    label: 'Management',
+    items: [
+      { key: 'users', label: 'Users', icon: 'group' },
+      { key: 'claims', label: 'Claims', icon: 'clipboard' },
+      { key: 'contact', label: 'Contact Messages', icon: 'mail' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { key: 'notifications', label: 'Notifications', icon: 'bell' },
+      { key: 'settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
 ]
 
 const emptyOverview = {
@@ -49,6 +70,8 @@ const routeSectionMap = {
   '/admin/claims': 'claims',
   '/admin/contact-messages': 'contact',
   '/admin/notifications': 'notifications',
+  '/admin/settings': 'settings',
+  '/admin/profile': 'settings',
 }
 
 const sectionRouteMap = {
@@ -60,6 +83,46 @@ const sectionRouteMap = {
   claims: '/admin/claims',
   contact: '/admin/contact-messages',
   notifications: '/admin/notifications',
+  settings: '/admin/settings',
+}
+
+const sectionHeadingMap = {
+  overview: {
+    title: 'Overview',
+    subtitle: 'Monitor FindIt activity and moderation.',
+  },
+  pending: {
+    title: 'Pending Posts',
+    subtitle: 'Review submissions waiting for moderation.',
+  },
+  lost: {
+    title: 'Lost Items',
+    subtitle: 'All lost-item posts submitted by the community.',
+  },
+  found: {
+    title: 'Found Items',
+    subtitle: 'All found-item posts submitted by the community.',
+  },
+  users: {
+    title: 'Users',
+    subtitle: 'Registered members in the FindIt community.',
+  },
+  claims: {
+    title: 'Claims',
+    subtitle: 'Monitor user-to-user claims and completed returns.',
+  },
+  contact: {
+    title: 'Contact Messages',
+    subtitle: 'Review support requests and resolve completed conversations.',
+  },
+  notifications: {
+    title: 'Notifications',
+    subtitle: 'Latest admin-facing updates from across the platform.',
+  },
+  settings: {
+    title: 'Settings',
+    subtitle: 'Advanced admin configuration and outbound webhook integrations.',
+  },
 }
 
 function AdminDashboard({ user, token, onLogout }) {
@@ -74,12 +137,18 @@ function AdminDashboard({ user, token, onLogout }) {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [savingPostId, setSavingPostId] = useState(null)
-  const [savingClaimId, setSavingClaimId] = useState(null)
   const [savingContactId, setSavingContactId] = useState(null)
   const [selectedPost, setSelectedPost] = useState(null)
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [contactSearch, setContactSearch] = useState('')
   const [contactStatusFilter, setContactStatusFilter] = useState('all')
+  const [adminProfileOpen, setAdminProfileOpen] = useState(false)
+  const [postSearch, setPostSearch] = useState('')
+  const [postStatusFilter, setPostStatusFilter] = useState('all')
+  const [webhooks, setWebhooks] = useState([])
+  const [supportedWebhookEvents, setSupportedWebhookEvents] = useState([])
+  const [webhookLoading, setWebhookLoading] = useState(false)
+  const profileMenuRef = useRef(null)
 
   const activeSection = routeSectionMap[location.pathname] ?? 'overview'
 
@@ -201,6 +270,24 @@ function AdminDashboard({ user, token, onLogout }) {
     [allPosts],
   )
 
+  const filterPostCollection = (posts) => {
+    const query = postSearch.trim().toLowerCase()
+
+    return posts.filter((post) => {
+      const matchesStatus = postStatusFilter === 'all' || post.status === postStatusFilter
+      const matchesSearch = !query || [
+        post.title,
+        post.content,
+        post.user?.name,
+        post.user?.email,
+        post.category?.name,
+        post.location,
+      ].some((value) => String(value ?? '').toLowerCase().includes(query))
+
+      return matchesStatus && matchesSearch
+    })
+  }
+
   const statCards = useMemo(() => {
     const stats = overview.stats ?? {}
 
@@ -218,43 +305,37 @@ function AdminDashboard({ user, token, onLogout }) {
         icon: 'clock',
       },
       {
-        label: 'Approved Posts',
-        value: stats.approved_posts ?? 0,
-        description: 'Currently visible in the system.',
-        icon: 'shield',
-      },
-      {
-        label: 'Rejected Posts',
-        value: stats.rejected_posts ?? 0,
-        description: 'Held back after moderation.',
-        icon: 'close',
-      },
-      {
-        label: 'Lost Items',
+        label: 'Total Lost Items',
         value: stats.lost_items ?? 0,
-        description: 'Total lost item reports submitted.',
+        description: 'Lost item reports submitted.',
         icon: 'search',
       },
       {
-        label: 'Found Items',
+        label: 'Total Found Items',
         value: stats.found_items ?? 0,
-        description: 'Total found item reports submitted.',
+        description: 'Found item reports submitted.',
         icon: 'inventory',
       },
       {
-        label: 'Claims',
-        value: stats.claims ?? 0,
-        description: 'Ownership claims from members.',
+        label: 'Active Claims',
+        value: stats.active_claims ?? claims.filter((claim) => claim.status === 'pending').length,
+        description: 'Users coordinating item returns.',
         icon: 'clipboard',
       },
       {
-        label: 'Contact Messages',
-        value: stats.contact_messages ?? 0,
-        description: 'Messages received from the site.',
+        label: 'Completed Returns',
+        value: stats.completed_returns ?? claims.filter((claim) => claim.status === 'returned').length,
+        description: 'Items recorded as returned.',
+        icon: 'checkCircle',
+      },
+      {
+        label: 'Unread Support',
+        value: stats.new_messages ?? 0,
+        description: 'Support messages needing attention.',
         icon: 'mail',
       },
     ]
-  }, [overview.stats])
+  }, [claims, overview.stats])
 
   const snapshotCards = useMemo(() => {
     const stats = overview.stats ?? {}
@@ -271,9 +352,9 @@ function AdminDashboard({ user, token, onLogout }) {
         body: `${stats.new_messages ?? 0} unread contact messages are waiting for a response.`,
       },
       {
-        title: 'Claims Queue',
+        title: 'Claim Activity',
         icon: 'clipboard',
-        body: `${claims.filter((claim) => claim.status === 'pending').length} claims are currently pending review.`,
+        body: `${claims.filter((claim) => claim.status === 'pending').length} active claims and ${claims.filter((claim) => claim.status === 'returned').length} completed returns are visible.`,
       },
     ]
   }, [claims, overview.recent_users, overview.stats])
@@ -293,6 +374,62 @@ function AdminDashboard({ user, token, onLogout }) {
       return matchesStatus && matchesSearch
     })
   }, [contactMessages, contactSearch, contactStatusFilter])
+
+  const sidebarCountMap = useMemo(() => ({
+    pending: pendingPosts.length,
+    lost: lostPosts.length,
+    found: foundPosts.length,
+    users: users.length,
+    claims: claims.length,
+    contact: contactMessages.filter((message) => message.status !== 'resolved').length,
+    notifications: overview.recent_activity?.length ?? 0,
+    settings: webhooks.length,
+  }), [claims, contactMessages, foundPosts.length, lostPosts.length, overview.recent_activity, pendingPosts.length, users.length, webhooks.length])
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setAdminProfileOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (activeSection !== 'settings' || !token) return undefined
+
+    let ignore = false
+
+    const loadWebhooks = async () => {
+      setWebhookLoading(true)
+
+      try {
+        const payload = await apiRequest('/admin/webhooks', { token })
+
+        if (ignore) return
+
+        setWebhooks(payload.endpoints ?? [])
+        setSupportedWebhookEvents(payload.supported_events ?? [])
+      } catch (requestError) {
+        if (!ignore) {
+          setFeedback(requestError.payload?.message ?? 'Failed to load webhook settings.')
+        }
+      } finally {
+        if (!ignore) {
+          setWebhookLoading(false)
+        }
+      }
+    }
+
+    void loadWebhooks()
+
+    return () => {
+      ignore = true
+    }
+  }, [activeSection, token])
 
   const selectedContactMessage = useMemo(() => (
     filteredContactMessages.find((message) => message.id === selectedContactId)
@@ -344,45 +481,6 @@ function AdminDashboard({ user, token, onLogout }) {
     }
   }
 
-  const handleClaimUpdate = async (claimId, status) => {
-    setSavingClaimId(claimId)
-    setFeedback('')
-
-    const note =
-      status === 'rejected' || status === 'returned'
-        ? window.prompt(
-            status === 'returned'
-              ? 'Add an admin note for marking this item as returned (optional):'
-              : 'Add an admin note for this claim rejection (optional):',
-            '',
-          ) ?? ''
-        : ''
-
-    try {
-      const actionMap = {
-        approved: 'approve',
-        rejected: 'reject',
-        returned: 'return',
-      }
-
-      const payload = await apiRequest(
-        `/admin/claims/${claimId}/${actionMap[status] ?? 'approve'}`,
-        {
-          method: 'PUT',
-          token,
-          body: note ? { admin_note: note } : {},
-        },
-      )
-
-      setFeedback(payload.message ?? `Claim ${status} successfully.`)
-      await loadDashboard({ silent: true })
-    } catch (requestError) {
-      setFeedback(requestError.payload?.message ?? `Failed to ${status} claim.`)
-    } finally {
-      setSavingClaimId(null)
-    }
-  }
-
   const handleContactMessageUpdate = async (messageId, status) => {
     setSavingContactId(messageId)
     setFeedback('')
@@ -419,27 +517,64 @@ function AdminDashboard({ user, token, onLogout }) {
     </div>
   )
 
+  const renderPageHeading = () => {
+    const heading = sectionHeadingMap[activeSection] ?? sectionHeadingMap.overview
+
+    return (
+      <div className="admin-compact-heading">
+        <div>
+          <h1>{heading.title}</h1>
+          <p>{heading.subtitle}</p>
+        </div>
+        {activeSection === 'overview' ? (
+          <span className="admin-compact-heading-badge">
+            <Icon name="shield" />
+            {loading ? 'Loading data...' : 'Live backend data'}
+          </span>
+        ) : null}
+      </div>
+    )
+  }
+
   const renderPostRows = (posts, emptyMessage) => {
-    if (!posts.length) {
+    const visiblePosts = filterPostCollection(posts)
+
+    if (!visiblePosts.length) {
       return renderEmpty(emptyMessage, 'document')
     }
 
     return (
       <div className="admin-pending-table">
+        <div className="admin-table-toolbar">
+          <label className="admin-table-search">
+            <Icon name="search" />
+            <input
+              type="search"
+              value={postSearch}
+              onChange={(event) => setPostSearch(event.target.value)}
+              placeholder="Search posts, users, category, or location..."
+            />
+          </label>
+          <select value={postStatusFilter} onChange={(event) => setPostStatusFilter(event.target.value)}>
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="claimed">Claimed</option>
+            <option value="returned">Returned</option>
+          </select>
+        </div>
+
         <div className="admin-pending-table-head">
           <span>User</span>
-          <span>Post Title</span>
-          <span>Type</span>
-          <span>Category</span>
-          <span>Location</span>
-          <span>Date</span>
-          <span>Status</span>
+          <span>Item / Post</span>
+          <span>Details</span>
           <span>Action</span>
         </div>
 
-        {posts.map((post) => (
+        {visiblePosts.map((post) => (
           <article className="admin-pending-table-row" key={post.id}>
-            <div className="admin-pending-user">
+            <div className="admin-pending-user admin-row-user" data-label="User">
               <span className="profile-avatar profile-avatar-small">
                 {post.user?.profile_image_url ? (
                   <img src={post.user.profile_image_url} alt={post.user.name} />
@@ -453,22 +588,24 @@ function AdminDashboard({ user, token, onLogout }) {
               </div>
             </div>
 
-            <div>
+            <div className="admin-row-post" data-label="Post">
               <strong>{post.title || 'Untitled Post'}</strong>
               <p>{post.content || 'No description provided.'}</p>
             </div>
 
-            <span className={`badge badge-type ${post.post_type === 'lost' ? 'badge-lost' : post.post_type === 'found' ? 'badge-found' : ''}`}>
-              {post.post_type}
-            </span>
-            <span>{post.category?.name || 'General'}</span>
-            <span>{post.location || 'Not provided'}</span>
-            <span>{formatDate(post.item_date || post.created_at)}</span>
-            <span className={`badge badge-status admin-status-badge admin-status-${post.status}`}>
-              {post.status}
-            </span>
+            <div className="admin-row-meta" data-label="Details">
+              <span className={`badge badge-type ${post.post_type === 'lost' ? 'badge-lost' : post.post_type === 'found' ? 'badge-found' : ''}`}>
+                {post.post_type}
+              </span>
+              <span>{post.category?.name || 'General'}</span>
+              <span>{post.location || 'Not provided'}</span>
+              <span>{formatDate(post.item_date || post.created_at)}</span>
+              <span className={`badge badge-status admin-status-badge admin-status-${post.status}`}>
+                {post.status}
+              </span>
+            </div>
 
-            <div className="admin-pending-actions">
+            <div className="admin-pending-actions" data-label="Action">
               <button
                 type="button"
                 className="secondary-action-button"
@@ -512,9 +649,11 @@ function AdminDashboard({ user, token, onLogout }) {
             <div className="dashboard-stat-icon admin-stat-icon">
               <Icon name={card.icon} />
             </div>
-            <strong>{card.value}</strong>
-            <h3>{card.label}</h3>
-            <p>{card.description}</p>
+            <div className="admin-stat-copy">
+              <strong>{card.value}</strong>
+              <h3>{card.label}</h3>
+              <p>{card.description}</p>
+            </div>
           </article>
         ))}
       </div>
@@ -536,7 +675,7 @@ function AdminDashboard({ user, token, onLogout }) {
 
           {overview.recent_activity?.length ? (
             <div className="admin-activity-list">
-              {overview.recent_activity.map((activity) => (
+              {overview.recent_activity.slice(0, 7).map((activity) => (
                 <article className="admin-activity-item" key={activity.id}>
                   <span className="admin-activity-icon">
                     <Icon name={activity.icon || 'document'} />
@@ -580,11 +719,6 @@ function AdminDashboard({ user, token, onLogout }) {
 
   const renderUsers = () => (
     <section className="dashboard-panel admin-dashboard-panel">
-      <div className="section-panel-heading">
-        <h2>Users</h2>
-        <p>Registered members in the FindIt community.</p>
-      </div>
-
       {users.length ? (
         <div className="admin-list">
           {users.map((person) => (
@@ -617,11 +751,6 @@ function AdminDashboard({ user, token, onLogout }) {
 
   const renderClaims = () => (
     <section className="dashboard-panel admin-dashboard-panel">
-      <div className="section-panel-heading">
-        <h2>Claims</h2>
-        <p>Ownership requests submitted by community members.</p>
-      </div>
-
       {claims.length ? (
         <div className="admin-card-grid">
           {claims.map((claim) => (
@@ -639,39 +768,8 @@ function AdminDashboard({ user, token, onLogout }) {
                   {claim.status}
                 </span>
                 <span>{formatDate(claim.created_at)}</span>
-                <span>{claim.item?.user?.name ? `Owner: ${claim.item.user.name}` : 'Owner unavailable'}</span>
-                {claim.status === 'pending' ? (
-                  <div className="admin-actions">
-                    <button
-                      type="button"
-                      className="quick-action-button admin-inline-button"
-                      disabled={savingClaimId === claim.id}
-                      onClick={() => void handleClaimUpdate(claim.id, 'approved')}
-                    >
-                      {savingClaimId === claim.id ? 'Saving...' : 'Approve'}
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-action-button admin-inline-button admin-reject-button"
-                      disabled={savingClaimId === claim.id}
-                      onClick={() => void handleClaimUpdate(claim.id, 'rejected')}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                ) : null}
-                {claim.status === 'approved' ? (
-                  <div className="admin-actions">
-                    <button
-                      type="button"
-                      className="quick-action-button admin-inline-button"
-                      disabled={savingClaimId === claim.id}
-                      onClick={() => void handleClaimUpdate(claim.id, 'returned')}
-                    >
-                      {savingClaimId === claim.id ? 'Saving...' : 'Mark Returned'}
-                    </button>
-                  </div>
-                ) : null}
+                <span>{claim.item?.user?.name ? `Finder: ${claim.item.user.name}` : 'Finder unavailable'}</span>
+                {claim.returned_at ? <span>Returned {formatDate(claim.returned_at)}</span> : null}
               </div>
             </article>
           ))}
@@ -684,11 +782,6 @@ function AdminDashboard({ user, token, onLogout }) {
 
   const renderContactMessages = () => (
     <section className="dashboard-panel admin-dashboard-panel admin-contact-inbox-panel">
-      <div className="section-panel-heading">
-        <h2>Contact Messages</h2>
-        <p>Review support requests, triage their status, and resolve completed conversations.</p>
-      </div>
-
       <div className="admin-contact-inbox">
         <aside className="admin-contact-list-pane">
           <div className="admin-contact-controls">
@@ -800,11 +893,6 @@ function AdminDashboard({ user, token, onLogout }) {
 
   const renderNotifications = () => (
     <section className="dashboard-panel admin-dashboard-panel">
-      <div className="section-panel-heading">
-        <h2>Notifications</h2>
-        <p>Latest admin-facing updates from across the platform.</p>
-      </div>
-
       {overview.recent_activity?.length ? (
         <div className="admin-activity-list">
           {overview.recent_activity.map((activity) => (
@@ -823,6 +911,85 @@ function AdminDashboard({ user, token, onLogout }) {
       ) : (
         renderEmpty('No notifications available yet.', 'bell')
       )}
+    </section>
+  )
+
+  const handleWebhookTest = async (webhookId) => {
+    setFeedback('')
+
+    try {
+      const payload = await apiRequest(`/admin/webhooks/${webhookId}/test`, {
+        method: 'POST',
+        token,
+      })
+
+      setFeedback(payload.message ?? 'Test webhook queued successfully.')
+    } catch (requestError) {
+      setFeedback(requestError.payload?.message ?? 'Failed to send test webhook.')
+    }
+  }
+
+  const renderSettings = () => (
+    <section className="dashboard-panel admin-dashboard-panel">
+      <div className="admin-settings-grid">
+        <article className="admin-settings-card">
+          <span className="admin-snapshot-icon">
+            <Icon name="shield" />
+          </span>
+          <div>
+            <strong>Admin Access</strong>
+            <p>Admin routes and APIs are protected by Sanctum authentication and admin middleware.</p>
+          </div>
+        </article>
+
+        <article className="admin-settings-card">
+          <span className="admin-snapshot-icon">
+            <Icon name="settings" />
+          </span>
+          <div>
+            <strong>Webhook Events</strong>
+            <p>{supportedWebhookEvents.length ? `${supportedWebhookEvents.length} supported outbound events configured.` : 'Webhook events load from the backend settings API.'}</p>
+          </div>
+        </article>
+      </div>
+
+      <div className="admin-webhook-panel">
+        <div className="section-panel-heading">
+          <h3>Webhook Endpoints</h3>
+          <p>Advanced integration endpoints. Secrets are managed by the backend and should be shared carefully.</p>
+        </div>
+
+        {webhookLoading ? (
+          renderEmpty('Loading webhook settings...', 'clock')
+        ) : webhooks.length ? (
+          <div className="admin-list">
+            {webhooks.map((webhook) => (
+              <article className="admin-list-item admin-webhook-row" key={webhook.id}>
+                <div>
+                  <strong>{webhook.name}</strong>
+                  <p>{webhook.url}</p>
+                  <p>{webhook.events?.join(', ') || 'No events selected'}</p>
+                </div>
+                <div className="admin-list-meta">
+                  <span className={`badge badge-status ${webhook.status === 'active' ? 'badge-approved' : 'badge-rejected'}`}>
+                    {webhook.status}
+                  </span>
+                  <span>{webhook.deliveries?.length ?? 0} recent deliveries</span>
+                  <button
+                    type="button"
+                    className="secondary-action-button"
+                    onClick={() => void handleWebhookTest(webhook.id)}
+                  >
+                    Send Test
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          renderEmpty('No webhook endpoints configured yet.', 'settings')
+        )}
+      </div>
     </section>
   )
 
@@ -931,30 +1098,18 @@ function AdminDashboard({ user, token, onLogout }) {
       case 'pending':
         return (
           <section className="dashboard-panel admin-dashboard-panel">
-            <div className="section-panel-heading">
-              <h2>Pending Posts</h2>
-              <p>Only submissions waiting for moderation appear here.</p>
-            </div>
             {renderPostRows(pendingPosts, 'No pending post reviews right now.')}
           </section>
         )
       case 'lost':
         return (
           <section className="dashboard-panel admin-dashboard-panel">
-            <div className="section-panel-heading">
-              <h2>Lost Items</h2>
-              <p>All lost-item posts submitted by the community.</p>
-            </div>
             {renderPostRows(lostPosts, 'No lost-item posts found yet.')}
           </section>
         )
       case 'found':
         return (
           <section className="dashboard-panel admin-dashboard-panel">
-            <div className="section-panel-heading">
-              <h2>Found Items</h2>
-              <p>All found-item posts submitted by the community.</p>
-            </div>
             {renderPostRows(foundPosts, 'No found-item posts found yet.')}
           </section>
         )
@@ -966,6 +1121,8 @@ function AdminDashboard({ user, token, onLogout }) {
         return renderContactMessages()
       case 'notifications':
         return renderNotifications()
+      case 'settings':
+        return renderSettings()
       case 'overview':
       default:
         return renderOverview()
@@ -985,23 +1142,48 @@ function AdminDashboard({ user, token, onLogout }) {
           </div>
 
           <div className="admin-dashboard-topbar-actions">
-            <div className="admin-dashboard-profile">
-              <span className="profile-avatar">
-                {user?.profile_image_url ? (
-                  <img src={user.profile_image_url} alt={user.name} />
-                ) : (
-                  user?.name?.charAt(0).toUpperCase() || 'A'
-                )}
-              </span>
-              <div>
-                <strong>{user?.name}</strong>
-                <small>Administrator</small>
-              </div>
-            </div>
-
-            <button type="button" className="quick-action-button admin-logout-button" onClick={onLogout}>
-              Logout
+            <button type="button" className="admin-icon-button" aria-label="Admin notifications" onClick={() => navigate('/admin/notifications')}>
+              <Icon name="bell" />
+              {sidebarCountMap.notifications ? <span>{sidebarCountMap.notifications}</span> : null}
             </button>
+
+            <div className="admin-profile-menu" ref={profileMenuRef}>
+              <button
+                type="button"
+                className="admin-dashboard-profile"
+                onClick={() => setAdminProfileOpen((current) => !current)}
+              >
+                <span className="profile-avatar">
+                  {user?.profile_image_url ? (
+                    <img src={user.profile_image_url} alt={user.name} />
+                  ) : (
+                    user?.name?.charAt(0).toUpperCase() || 'A'
+                  )}
+                </span>
+                <div>
+                  <strong>{user?.name}</strong>
+                  <small>Administrator</small>
+                </div>
+                <Icon name="chevronDown" />
+              </button>
+
+              {adminProfileOpen ? (
+                <div className="admin-profile-dropdown">
+                  <div className="admin-profile-dropdown-head">
+                    <strong>{user?.name || 'Admin'}</strong>
+                    <span>Administrator</span>
+                  </div>
+                  <button type="button" onClick={() => { setAdminProfileOpen(false); navigate('/admin/settings') }}>
+                    <Icon name="settings" />
+                    Settings
+                  </button>
+                  <button type="button" onClick={onLogout}>
+                    <Icon name="logout" />
+                    Logout
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>
@@ -1012,40 +1194,38 @@ function AdminDashboard({ user, token, onLogout }) {
             <div className="dashboard-panel admin-sidebar-card">
               <h2>Admin Menu</h2>
               <nav className="admin-sidebar-nav" aria-label="Admin sections">
-                {sidebarItems.map((item) => (
-                  <button
-                    type="button"
-                    key={item.key}
-                    className={`admin-sidebar-link${activeSection === item.key ? ' is-active' : ''}`}
-                    onClick={() => {
-                      const nextPath = sectionRouteMap[item.key] ?? '/admin'
-                      if (nextPath !== location.pathname) {
-                        navigate(nextPath)
-                      }
-                    }}
-                  >
-                    <span className="admin-sidebar-link-icon">
-                      <Icon name={item.icon} />
-                    </span>
-                    <span>{item.label}</span>
-                  </button>
+                {sidebarGroups.map((group) => (
+                  <div className="admin-sidebar-group" key={group.label}>
+                    <p>{group.label}</p>
+                    {group.items.map((item) => (
+                      <button
+                        type="button"
+                        key={item.key}
+                        className={`admin-sidebar-link${activeSection === item.key ? ' is-active' : ''}`}
+                        onClick={() => {
+                          const nextPath = sectionRouteMap[item.key] ?? '/admin'
+                          if (nextPath !== location.pathname) {
+                            navigate(nextPath)
+                          }
+                        }}
+                      >
+                        <span className="admin-sidebar-link-icon">
+                          <Icon name={item.icon} />
+                        </span>
+                        <span>{item.label}</span>
+                        {sidebarCountMap[item.key] ? (
+                          <small>{sidebarCountMap[item.key]}</small>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </nav>
             </div>
           </aside>
 
           <section className="admin-dashboard-content">
-            <div className="page-header-card admin-dashboard-hero">
-              <div>
-                <p className="admin-dashboard-eyebrow">Admin Dashboard</p>
-                <h1>Admin Dashboard</h1>
-                <p>Manage posts, users, claims, and system activity.</p>
-              </div>
-              <div className="admin-dashboard-hero-badge">
-                <Icon name="shield" />
-                <span>{loading ? 'Loading data...' : 'Live backend data'}</span>
-              </div>
-            </div>
+            {renderPageHeading()}
 
             {error ? (
               <section className="dashboard-panel admin-dashboard-panel admin-error-card">

@@ -78,6 +78,8 @@ class AdminController extends Controller
                 'lost_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'lost')->count(), 0),
                 'found_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'found')->count(), 0),
                 'claims' => $this->safe(fn () => Claim::query()->count(), 0),
+                'active_claims' => $this->safe(fn () => Claim::query()->where('status', 'pending')->count(), 0),
+                'completed_returns' => $this->safe(fn () => Claim::query()->where('status', 'returned')->count(), 0),
                 'contact_messages' => $this->safe(fn () => ContactMessage::query()->count(), 0),
                 'new_messages' => $this->safe(fn () => ContactMessage::query()->whereIn('status', ['new', 'pending'])->count(), 0),
                 'pending_messages' => $this->safe(fn () => ContactMessage::query()->whereIn('status', ['new', 'pending'])->count(), 0),
@@ -576,7 +578,6 @@ class AdminController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,
-            'nrc_no' => $user->nrc_no,
             'role' => $user->role,
             'status' => $user->status,
             'created_at' => optional($user->created_at)?->toISOString(),
@@ -784,10 +785,12 @@ class AdminController extends Controller
             ...array_map(fn (array $claim) => [
                 'id' => 'claim-'.$claim['id'],
                 'type' => 'claim',
-                'title' => 'Claim requested',
-                'detail' => trim(($claim['user']['name'] ?? 'A user').' requested claim review for '.($claim['item']['title'] ?? 'an item').'.'),
-                'time' => $claim['created_at'],
-                'icon' => 'clipboard',
+                'title' => $claim['status'] === 'returned' ? 'Item returned' : 'Claim requested',
+                'detail' => $claim['status'] === 'returned'
+                    ? trim(($claim['item']['title'] ?? 'An item').' was returned by '.($claim['item']['user']['name'] ?? 'the finder').' to '.($claim['user']['name'] ?? 'the claimant').'.')
+                    : trim(($claim['user']['name'] ?? 'A user').' submitted a claim for '.($claim['item']['title'] ?? 'an item').'.'),
+                'time' => $claim['status'] === 'returned' ? ($claim['returned_at'] ?? $claim['created_at']) : $claim['created_at'],
+                'icon' => $claim['status'] === 'returned' ? 'checkCircle' : 'clipboard',
             ], $recentClaims),
             ...array_map(fn (array $message) => [
                 'id' => 'contact-'.$message['id'],

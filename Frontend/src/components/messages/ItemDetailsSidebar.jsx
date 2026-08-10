@@ -10,9 +10,29 @@ function ItemFact({ label, value }) {
   )
 }
 
-function ItemDetailsSidebar({ relatedItem }) {
+function ItemDetailsSidebar({
+  relatedItem,
+  user,
+  activeConversation,
+  onViewItem,
+  onMarkClaimReturned,
+  savingClaimId,
+}) {
   const itemType = relatedItem?.post_type ?? relatedItem?.type
   const imageUrl = relatedItem?.image_url ?? relatedItem?.image
+  const ownerId = relatedItem?.user?.id ?? relatedItem?.user_id
+  const isOwner = ownerId && user?.id && Number(ownerId) === Number(user.id)
+  const normalizedStatus = relatedItem?.status?.toLowerCase()
+  const canMarkReturned = (
+    isOwner
+    && itemType === 'found'
+    && normalizedStatus !== 'returned'
+    && normalizedStatus !== 'rejected'
+  )
+  const activeClaim = relatedItem?.claims?.find((claim) => (
+    ['pending', 'approved'].includes(claim.status)
+    && (!activeConversation?.participant?.id || Number(claim.user?.id) === Number(activeConversation.participant.id))
+  ))
 
   return (
     <aside className="messages-item-panel">
@@ -24,7 +44,7 @@ function ItemDetailsSidebar({ relatedItem }) {
       </div>
 
       {relatedItem ? (
-        <>
+        <div className="messages-item-content">
           <div className="messages-item-image">
             {imageUrl ? (
               <img src={imageUrl} alt={relatedItem.title} />
@@ -49,11 +69,20 @@ function ItemDetailsSidebar({ relatedItem }) {
           </div>
 
           <div className="messages-item-actions">
-            <button type="button" className="quick-action-button messages-sidebar-action">View Item</button>
-            <button type="button" className="secondary-action-button messages-sidebar-action">Mark as Returned</button>
-            <button type="button" className="secondary-action-button messages-sidebar-action">Report User</button>
+            <button type="button" className="quick-action-button messages-sidebar-action" onClick={() => onViewItem?.(relatedItem)}>View Item</button>
+            {canMarkReturned && activeClaim ? (
+              <button
+                type="button"
+                className="secondary-action-button messages-sidebar-action"
+                disabled={savingClaimId === activeClaim.id}
+                onClick={() => onMarkClaimReturned?.(activeClaim)}
+              >
+                {savingClaimId === activeClaim.id ? 'Saving...' : 'Mark as Returned'}
+              </button>
+            ) : null}
+            <button type="button" className="secondary-action-button messages-sidebar-action" disabled>Report User</button>
           </div>
-        </>
+        </div>
       ) : (
         <div className="messages-empty-card">
           <strong>No item linked</strong>

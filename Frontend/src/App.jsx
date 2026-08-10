@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import './App.css'
 import AuthModal from './components/AuthModal'
 import LandingPage from './pages/LandingPage'
@@ -37,6 +37,16 @@ function AdminRoute({ authUser, children }) {
   }
 
   return children
+}
+
+function ScrollToTop() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 })
+  }, [pathname])
+
+  return null
 }
 
 function App() {
@@ -128,6 +138,7 @@ function App() {
 
   return (
     <>
+      <ScrollToTop />
       <div className={`page-shell${isModalOpen ? ' is-modal-open' : ''}`}>
         <div className="page-blur-layer">
           <Routes>
@@ -276,6 +287,30 @@ function App() {
             />
             <Route
               path="/admin/notifications"
+              element={(
+                <AdminRoute authUser={authUser}>
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
+                </AdminRoute>
+              )}
+            />
+            <Route
+              path="/admin/settings"
+              element={(
+                <AdminRoute authUser={authUser}>
+                  <AdminDashboard
+                    user={authUser}
+                    token={authToken}
+                    onLogout={handleLogout}
+                  />
+                </AdminRoute>
+              )}
+            />
+            <Route
+              path="/admin/profile"
               element={(
                 <AdminRoute authUser={authUser}>
                   <AdminDashboard

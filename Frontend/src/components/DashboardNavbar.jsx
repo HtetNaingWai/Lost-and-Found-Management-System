@@ -21,6 +21,7 @@ function DashboardNavbar({
   onToggleNotifications,
   notificationRef,
   unreadNotifications,
+  onNotificationClick,
 }) {
   return (
     <header className="topbar topbar-authenticated">
@@ -83,13 +84,18 @@ function DashboardNavbar({
                 <div className="notification-list">
                   {notifications.length > 0 ? (
                     notifications.map((notification) => (
-                      <article className="notification-item" key={notification.id}>
+                      <button
+                        type="button"
+                        className="notification-item notification-item-button"
+                        key={notification.id}
+                        onClick={() => onNotificationClick?.(notification)}
+                      >
                         <div className="notification-item-copy">
                           <strong>{notification.title}</strong>
                           <p>{notification.detail}</p>
                         </div>
                         <span>{notification.time}</span>
-                      </article>
+                      </button>
                     ))
                   ) : (
                     <div className="notification-empty">No new notifications</div>
