@@ -4,6 +4,7 @@ import './App.css'
 import AuthModal from './components/AuthModal'
 import LandingPage from './pages/LandingPage'
 import DashboardLayout from './pages/DashboardLayout'
+import { HowItWorksPage, PrivacyPolicyPage, SecurityPage } from './pages/InfoPages'
 import { apiRequest, AUTH_STORAGE_KEY, clearAuth, saveAuth } from './services/api'
 import BrandMark from './components/BrandMark'
 import AdminDashboard from './pages/AdminDashboard'
@@ -138,6 +139,9 @@ function App() {
                 </GuestOnlyRoute>
               )}
             />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/security" element={<SecurityPage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
             <Route
               path="/community"
               element={(

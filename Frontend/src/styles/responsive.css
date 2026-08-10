@@ -36,6 +36,8 @@
   .recent-items-grid,
   .steps-grid,
   .features-grid,
+  .info-card-grid,
+  .info-workflow-grid,
   .admin-dashboard-stat-grid,
   .admin-overview-grid,
   .simple-card-grid,
@@ -312,7 +314,14 @@
   }
 
   .footer-inner {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .info-card-grid,
+  .info-workflow-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -576,6 +585,11 @@
 
   .recent-item-image-wrap {
     height: 200px;
+  }
+
+  .recent-item-hover-button {
+    padding: 9px 15px;
+    font-size: 12px;
   }
 
   .floating-post-button {

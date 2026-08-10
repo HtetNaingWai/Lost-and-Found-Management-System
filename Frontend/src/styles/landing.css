@@ -320,7 +320,8 @@
 }
 
 .footer-inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(180px, auto) minmax(220px, 1fr) auto;
   align-items: center;
   justify-content: space-between;
   gap: 28px;
@@ -330,6 +331,15 @@
 .brand-footer {
   color: #ab2c05;
   font-size: 20px;
+}
+
+.footer-tagline {
+  margin: 0;
+  color: #4a4f4b;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .footer-links {
@@ -348,9 +358,77 @@
 }
 
 .footer-copy {
+  grid-column: 1 / -1;
+  margin: 0;
   color: #333936;
   font-size: 14px;
   line-height: 1.5;
+  text-align: center;
+}
+
+.info-page-main {
+  background: #f8fafc;
+}
+
+.info-page-hero {
+  padding: 72px 0 42px;
+  text-align: center;
+}
+
+.info-page-hero .hero-eyebrow {
+  width: fit-content;
+  margin: 0 auto 14px;
+  color: #ab2c05;
+}
+
+.info-page-hero h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 44px;
+  line-height: 1.08;
+}
+
+.info-page-hero > p:last-child {
+  max-width: 760px;
+  margin: 16px auto 0;
+  color: #4b5563;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.info-card-grid,
+.info-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.info-policy-card {
+  min-height: 180px;
+}
+
+.info-policy-card h2,
+.info-workflow-card h2 {
+  color: #111827;
+  font-size: 20px;
+}
+
+.info-policy-card p,
+.info-workflow-card p {
+  margin: 10px 0 0;
+}
+
+.info-workflow-card {
+  min-height: 250px;
+}
+
+.info-workflow-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: #ab2c05;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 
@@ -565,4 +643,3 @@
 .footer-copy {
   color: var(--muted-text);
 }
-

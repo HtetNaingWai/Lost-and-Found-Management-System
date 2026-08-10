@@ -1,7 +1,7 @@
 import GuestNav from '../components/GuestNav'
 import { heroImage, howItWorksSteps, platformFeatures } from '../utils/constants'
 import Icon from '../components/Icon'
-import BrandMark from '../components/BrandMark'
+import Footer from '../components/Footer'
 
 function LandingPage({ onOpenModal }) {
   return (
@@ -151,26 +151,7 @@ function LandingPage({ onOpenModal }) {
         </section>
       </main>
 
-      <footer className="site-footer">
-        <div className="container footer-inner">
-          <a className="brand brand-footer" href="#home">
-            <BrandMark />
-            <span className="brand-copy">
-              <strong>FindIt</strong>
-              <small>Lost &amp; Found</small>
-            </span>
-          </a>
-
-          <nav className="footer-links" aria-label="Footer">
-            <a href="#about">About Us</a>
-            <a href="#contact">Contact Us</a>
-            <a href="#privacy">Privacy Policy</a>
-            <a href="#terms">Terms of Service</a>
-          </nav>
-
-          <p className="footer-copy">@2026 FindIt. All rights reserved.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

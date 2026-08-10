@@ -4,7 +4,7 @@ function GuestNav() {
   return (
     <header className="topbar">
       <div className="container topbar-inner">
-        <a className="brand" href="#home">
+        <a className="brand" href="/">
           <BrandMark />
           <span className="brand-copy">
             <strong>FindIt</strong>
@@ -13,11 +13,11 @@ function GuestNav() {
         </a>
 
         <nav className="nav-links" aria-label="Primary">
-          <a className="is-active" href="#home">
+          <a className="is-active" href="/#home">
             Home
           </a>
-          <a href="#about">About Us</a>
-          <a href="#contact">Contact Us</a>
+          <a href="/#about">About Us</a>
+          <a href="/#contact">Contact Us</a>
         </nav>
       </div>
     </header>
