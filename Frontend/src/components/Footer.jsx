@@ -19,6 +19,7 @@ function Footer() {
           <Link to="/privacy-policy">Privacy Policy</Link>
           <Link to="/security">Security</Link>
           <Link to="/how-it-works">How It Works</Link>
+          <Link to="/#contact">Contact Us</Link>
         </nav>
 
         <p className="footer-copy">© 2026 FindIt. All rights reserved.</p>

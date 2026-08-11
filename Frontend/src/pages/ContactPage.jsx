@@ -10,6 +10,7 @@ import {
   normalizeRealtimeUserId,
 } from '../services/realtime'
 import { formatDate } from '../utils/formatDate'
+import { getPresenceStatus } from '../utils/presence'
 
 function SupportAvatar({ user }) {
   const initial = user?.name?.charAt(0)?.toUpperCase() || 'A'
@@ -21,24 +22,26 @@ function SupportAvatar({ user }) {
   )
 }
 
-function ContactPage({ user, token }) {
+function ContactPage({ user, token, onlineUserIds: sharedOnlineUserIds = null }) {
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
+  const [attachment, setAttachment] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const [onlineUserIds, setOnlineUserIds] = useState([])
+  const [localOnlineUserIds, setLocalOnlineUserIds] = useState([])
   const [typingUserId, setTypingUserId] = useState(null)
   const typingTimeoutRef = useRef(null)
   const threadEndRef = useRef(null)
   const channelRef = useRef(null)
+  const fileInputRef = useRef(null)
 
+  const onlineUserIds = sharedOnlineUserIds ?? localOnlineUserIds
   const admin = conversation?.admin
-  const adminId = normalizeRealtimeUserId(admin?.id)
-  const isAdminOnline = useMemo(
-    () => adminId !== null && normalizePresenceIds(onlineUserIds).includes(adminId),
-    [adminId, onlineUserIds],
+  const adminPresence = useMemo(
+    () => getPresenceStatus(admin, onlineUserIds),
+    [admin, onlineUserIds],
   )
 
   const loadSupportConversation = useCallback(async () => {
@@ -66,30 +69,31 @@ function ContactPage({ user, token }) {
   useEffect(() => {
     const echo = getRealtimeClient(token)
 
+    if (sharedOnlineUserIds) return undefined
     if (!echo || !user?.id) return undefined
 
     const presenceChannel = echo.join(getPresenceChannelName())
 
     presenceChannel.here((members = []) => {
-      setOnlineUserIds(normalizePresenceIds(members.map((member) => member.id)))
+      setLocalOnlineUserIds(normalizePresenceIds(members.map((member) => member.id)))
     })
 
     presenceChannel.joining((member) => {
       const memberId = normalizeRealtimeUserId(member.id)
       if (!memberId) return
-      setOnlineUserIds((current) => normalizePresenceIds([...current, memberId]))
+      setLocalOnlineUserIds((current) => normalizePresenceIds([...current, memberId]))
     })
 
     presenceChannel.leaving((member) => {
       const memberId = normalizeRealtimeUserId(member.id)
       if (!memberId) return
-      setOnlineUserIds((current) => normalizePresenceIds(current).filter((id) => id !== memberId))
+      setLocalOnlineUserIds((current) => normalizePresenceIds(current).filter((id) => id !== memberId))
     })
 
     return () => {
       echo.leave(getPresenceChannelName())
     }
-  }, [token, user?.id])
+  }, [sharedOnlineUserIds, token, user?.id])
 
   useEffect(() => {
     const echo = getRealtimeClient(token)
@@ -152,6 +156,16 @@ function ContactPage({ user, token }) {
       )
     })
 
+    channel.listen('.message.deleted', (payload) => {
+      const deletedMessage = payload.message
+
+      if (!deletedMessage?.id || Number(deletedMessage.support_conversation_id) !== Number(conversation.id)) return
+
+      setMessages((current) => current.map((message) => (
+        message.id === deletedMessage.id ? deletedMessage : message
+      )))
+    })
+
     return () => {
       channelRef.current = null
       echo.leave(channelName)
@@ -175,18 +189,55 @@ function ContactPage({ user, token }) {
     sendTyping(Boolean(event.target.value.trim()))
   }
 
+  const handleAttachmentChange = (event) => {
+    const file = event.target.files?.[0] ?? null
+    setError('')
+
+    if (!file) return
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Please attach a JPG, PNG, or WEBP image.')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Attachment must be 5MB or smaller.')
+      event.target.value = ''
+      return
+    }
+
+    setAttachment(file)
+  }
+
+  const handleRemoveAttachment = () => {
+    setAttachment(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
-    if (!draft.trim() || sending) return
+    if ((!draft.trim() && !attachment) || sending) return
 
     setSending(true)
     setError('')
 
     try {
+      const body = attachment ? new FormData() : { message: draft.trim() }
+
+      if (attachment) {
+        body.append('attachment', attachment)
+        if (draft.trim()) {
+          body.append('message', draft.trim())
+        }
+      }
+
       const payload = await apiRequest('/support/messages', {
         method: 'POST',
         token,
-        body: { message: draft.trim() },
+        body,
       })
 
       setConversation(payload.conversation ?? conversation)
@@ -196,11 +247,30 @@ function ContactPage({ user, token }) {
           : [...current, payload.data]
       ))
       setDraft('')
+      handleRemoveAttachment()
       sendTyping(false)
     } catch (requestError) {
       setError(requestError.payload?.message ?? 'Failed to send support message.')
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleDeleteMessage = async (messageId) => {
+    setError('')
+
+    try {
+      const payload = await apiRequest(`/support/messages/${messageId}`, {
+        method: 'DELETE',
+        token,
+      })
+
+      const deletedMessage = payload.data
+      setMessages((current) => current.map((message) => (
+        message.id === deletedMessage.id ? deletedMessage : message
+      )))
+    } catch (requestError) {
+      setError(requestError.payload?.message ?? 'Failed to delete support message.')
     }
   }
 
@@ -212,25 +282,32 @@ function ContactPage({ user, token }) {
             <Icon name="mail" />
           </span>
           <h2>FindIt Support</h2>
-          <p>Chat with the admin team about account issues, reports, claims, returns, or safety concerns.</p>
+          <p>Get help from the FindIt team about reports, claims, returns, or account safety.</p>
           <div className="contact-support-details">
             <div>
               <strong>Status</strong>
-              <span>{isAdminOnline ? 'Admin online now' : 'Admin currently offline'}</span>
+              <span>{adminPresence.online ? 'Support team online' : adminPresence.label}</span>
             </div>
             <div>
-              <strong>Response window</strong>
-              <span>We usually reply during township office hours.</span>
+              <strong>Typical reply</strong>
+              <span>We usually respond during township office hours.</span>
+            </div>
+            <div>
+              <strong>Best for</strong>
+              <span>Claims, returns, reports, and safety questions.</span>
             </div>
           </div>
         </section>
 
         <section className="support-chat-card">
           <header className="support-chat-header">
-            <SupportAvatar user={admin} />
-            <div>
-              <h2>{admin?.name ?? 'FindIt Admin'}</h2>
-              <p>{typingUserId ? 'Typing...' : isAdminOnline ? 'Online' : 'Offline'}</p>
+            <div className="support-chat-agent">
+              <SupportAvatar user={admin} />
+              <span className={`support-presence-dot ${adminPresence.online ? 'is-online' : ''}`} />
+            </div>
+            <div className="support-chat-heading">
+              <h2>Support Team</h2>
+              <p>{typingUserId ? 'Typing...' : adminPresence.label}</p>
             </div>
             <span className={`support-status-pill support-status-${conversation?.status ?? 'open'}`}>
               {conversation?.status === 'resolved' ? 'Resolved' : 'Support Chat'}
@@ -245,10 +322,36 @@ function ContactPage({ user, token }) {
             ) : messages.length > 0 ? (
               messages.map((message) => {
                 const isOwn = normalizeRealtimeUserId(message.sender?.id) === normalizeRealtimeUserId(user.id)
+                const isDeleted = message.is_deleted || message.deleted_at
+                const attachmentUrl = message.attachment_url ?? message.image_url ?? message.image
 
                 return (
-                  <article key={message.id} className={`support-message-bubble ${isOwn ? 'is-own' : 'is-admin'}`}>
-                    <p>{message.message}</p>
+                  <article key={message.id} className={`support-message-bubble ${isOwn ? 'is-own' : 'is-admin'}${isDeleted ? ' is-deleted' : ''}`}>
+                    {!isDeleted && isOwn ? (
+                      <div className="support-message-menu">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMessage(message.id)}
+                          aria-label="Delete message"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : null}
+                    {isDeleted ? (
+                      <p>This message was deleted.</p>
+                    ) : (
+                      <>
+                        {attachmentUrl ? (
+                          <img
+                            className="support-message-attachment"
+                            src={attachmentUrl}
+                            alt={message.attachment_name || 'Support message attachment'}
+                          />
+                        ) : null}
+                        {message.message ? <p>{message.message}</p> : null}
+                      </>
+                    )}
                     <span>
                       {formatDate(message.created_at, { hour: 'numeric', minute: '2-digit' })}
                       {isOwn ? ` · ${message.is_read ? 'Read' : 'Sent'}` : ''}
@@ -257,22 +360,56 @@ function ContactPage({ user, token }) {
                 )
               })
             ) : (
-              <div className="support-empty-state">
-                <strong>Start a support conversation</strong>
-                <span>Send your first message and an admin can reply here in real time.</span>
+              <div className="support-welcome-card">
+                <span className="support-welcome-icon">
+                  <Icon name="chat" />
+                </span>
+                <strong>Welcome to FindIt Support</strong>
+                <span>Tell us what happened. An admin reply will appear here, and you can continue the conversation anytime.</span>
               </div>
             )}
             <span ref={threadEndRef} />
           </div>
 
           <form className="support-chat-composer" onSubmit={handleSubmit}>
+            {attachment ? (
+              <div className="support-attachment-preview">
+                <span>
+                  <Icon name="paperclip" />
+                </span>
+                <strong>{attachment.name}</strong>
+                <button type="button" onClick={handleRemoveAttachment} aria-label="Remove attachment">
+                  <Icon name="close" />
+                </button>
+              </div>
+            ) : null}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="support-file-input"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleAttachmentChange}
+            />
+            <button
+              type="button"
+              className="support-attach-button"
+              aria-label="Attach image"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Icon name="paperclip" />
+            </button>
             <textarea
               rows="1"
               value={draft}
               onChange={handleDraftChange}
               placeholder="Type your support message..."
             />
-            <button type="submit" disabled={sending || !draft.trim()}>
+            <button
+              type="submit"
+              className="support-send-button"
+              disabled={sending || (!draft.trim() && !attachment)}
+              aria-label={sending ? 'Sending support message' : 'Send support message'}
+            >
               <Icon name="send" />
               <span>{sending ? 'Sending' : 'Send'}</span>
             </button>

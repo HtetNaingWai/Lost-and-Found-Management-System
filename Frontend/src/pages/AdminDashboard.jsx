@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -13,6 +13,8 @@ import {
   normalizeRealtimeUserId,
 } from '../services/realtime'
 import { formatDate } from '../utils/formatDate'
+import { getPresenceStatus } from '../utils/presence'
+import { resolveImageUrl } from '../utils/imageUrl'
 
 const sidebarGroups = [
   {
@@ -55,6 +57,13 @@ const emptyOverview = {
   recent_contact_messages: [],
 }
 
+const getDateKey = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toDateString()
+}
+
 const routeSectionMap = {
   '/admin': 'overview',
   '/admin/pending-posts': 'pending',
@@ -78,6 +87,17 @@ const sectionRouteMap = {
   contact: '/admin/contact-messages',
   notifications: '/admin/notifications',
   settings: '/admin/settings',
+}
+
+function getPostImageSource(post) {
+  return resolveImageUrl(
+    post?.image_url
+      ?? post?.imageUrl
+      ?? post?.image
+      ?? post?.photo_url
+      ?? post?.photo
+      ?? post?.attachment_url,
+  )
 }
 
 function hasValidCoordinates(post) {
@@ -185,6 +205,9 @@ function AdminDashboard({ user, token, onLogout }) {
   const [sendingMessage, setSendingMessage] = useState(false)
   const [savingUserId, setSavingUserId] = useState(null)
   const [userActionMenuId, setUserActionMenuId] = useState(null)
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false)
+  const [selectedPostImagePreview, setSelectedPostImagePreview] = useState(false)
+  const [selectedPostImageFailed, setSelectedPostImageFailed] = useState(false)
   const [webhooks, setWebhooks] = useState([])
   const [supportedWebhookEvents, setSupportedWebhookEvents] = useState([])
   const [webhookLoading, setWebhookLoading] = useState(false)
@@ -441,7 +464,7 @@ function AdminDashboard({ user, token, onLogout }) {
   }, [])
 
   useEffect(() => {
-    const hasOpenModal = selectedPost || selectedUser || messageDialog || banDialog || moderationDialog
+    const hasOpenModal = selectedPost || selectedUser || messageDialog || banDialog || moderationDialog || selectedPostImagePreview
 
     if (!hasOpenModal) return undefined
 
@@ -450,6 +473,11 @@ function AdminDashboard({ user, token, onLogout }) {
 
     const handleEscape = (event) => {
       if (event.key !== 'Escape') return
+
+      if (selectedPostImagePreview) {
+        setSelectedPostImagePreview(false)
+        return
+      }
 
       setSelectedPost(null)
       setSelectedUser(null)
@@ -464,7 +492,12 @@ function AdminDashboard({ user, token, onLogout }) {
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleEscape)
     }
-  }, [banDialog, messageDialog, moderationDialog, selectedPost, selectedUser])
+  }, [banDialog, messageDialog, moderationDialog, selectedPost, selectedPostImagePreview, selectedUser])
+
+  useEffect(() => {
+    setSelectedPostImagePreview(false)
+    setSelectedPostImageFailed(false)
+  }, [selectedPost?.id])
 
   useEffect(() => {
     if (activeSection !== 'settings' || !token) return undefined
@@ -958,6 +991,7 @@ function AdminDashboard({ user, token, onLogout }) {
         </div>
 
         <div className={`admin-pending-table-head ${isPendingMode ? 'is-pending' : 'is-approved'}`}>
+          {!isPendingMode ? <span aria-hidden="true">Image</span> : null}
           <span>Item</span>
           <span>User</span>
           {isPendingMode ? <span>Type</span> : null}
@@ -967,16 +1001,33 @@ function AdminDashboard({ user, token, onLogout }) {
           <span>Action</span>
         </div>
 
-        {visiblePosts.map((post) => (
+        {visiblePosts.map((post) => {
+          const postImageUrl = getPostImageSource(post)
+
+          return (
           <article className={`admin-pending-table-row ${isPendingMode ? 'is-pending' : 'is-approved'}`} key={post.id}>
+            {!isPendingMode ? (
+              <div className="admin-row-image" data-label="Image">
+                {postImageUrl ? (
+                  <img className="admin-row-thumbnail" src={postImageUrl} alt={post.title || 'Reported item'} />
+                ) : (
+                  <span className="admin-row-thumbnail admin-row-thumbnail-empty">
+                    <Icon name={post.post_type === 'lost' ? 'search' : 'inventory'} />
+                  </span>
+                )}
+              </div>
+            ) : null}
+
             <div className="admin-row-item" data-label="Item">
-              {post.image_url ? (
-                <img className="admin-row-thumbnail" src={post.image_url} alt={post.title || 'Reported item'} />
-              ) : (
-                <span className="admin-row-thumbnail admin-row-thumbnail-empty">
-                  <Icon name={post.post_type === 'lost' ? 'search' : 'inventory'} />
-                </span>
-              )}
+              {isPendingMode ? (
+                postImageUrl ? (
+                  <img className="admin-row-thumbnail" src={postImageUrl} alt={post.title || 'Reported item'} />
+                ) : (
+                  <span className="admin-row-thumbnail admin-row-thumbnail-empty">
+                    <Icon name={post.post_type === 'lost' ? 'search' : 'inventory'} />
+                  </span>
+                )
+              ) : null}
               <div>
                 <strong>{post.title || 'Untitled Post'}</strong>
                 {isPendingMode ? (
@@ -1041,7 +1092,8 @@ function AdminDashboard({ user, token, onLogout }) {
               ) : null}
             </div>
           </article>
-        ))}
+          )
+        })}
       </div>
     )
   }
@@ -1225,11 +1277,14 @@ function AdminDashboard({ user, token, onLogout }) {
     <section className="dashboard-panel admin-dashboard-panel">
       {claims.length ? (
         <div className="admin-claims-table">
-          {claims.map((claim) => (
+          {claims.map((claim) => {
+            const claimItemImageUrl = getPostImageSource(claim.item)
+
+            return (
             <article className="admin-claim-row" key={claim.id}>
               <div className="admin-row-item">
-                {claim.item?.image_url ? (
-                  <img className="admin-row-thumbnail" src={claim.item.image_url} alt={claim.item.title || 'Claimed item'} />
+                {claimItemImageUrl ? (
+                  <img className="admin-row-thumbnail" src={claimItemImageUrl} alt={claim.item?.title || 'Claimed item'} />
                 ) : (
                   <span className="admin-row-thumbnail admin-row-thumbnail-empty">
                     <Icon name={claim.item?.type === 'lost' ? 'search' : 'inventory'} />
@@ -1271,7 +1326,8 @@ function AdminDashboard({ user, token, onLogout }) {
                 </button>
               </div>
             </article>
-          ))}
+            )
+          })}
         </div>
       ) : (
         renderEmpty('No claims yet.', 'clipboard')
@@ -1297,29 +1353,37 @@ function AdminDashboard({ user, token, onLogout }) {
 
           <div className="admin-contact-list">
             {filteredContactMessages.length > 0 ? (
-              filteredContactMessages.map((conversation) => (
-                <button
-                  type="button"
-                  key={conversation.id}
-                  className={`admin-contact-list-item${selectedContactMessage?.id === conversation.id ? ' is-active' : ''}`}
-                  onClick={() => setSelectedContactId(conversation.id)}
-                >
-                  <span className="profile-avatar profile-avatar-small">
-                    {conversation.user?.profile_image_url
-                      ? <img src={conversation.user.profile_image_url} alt={conversation.user.name} />
-                      : conversation.user?.name?.charAt(0).toUpperCase() || '?'}
-                  </span>
-                  <span className="admin-contact-list-copy">
-                    <strong>{conversation.user?.name ?? 'Community Member'}</strong>
-                    <small>{conversation.user?.email}</small>
-                    <span>{conversation.latest_message?.message ?? 'No messages yet.'}</span>
-                  </span>
-                  <span className="admin-contact-meta">
-                    {conversation.unread_count ? <b>{conversation.unread_count}</b> : null}
-                    <small>{formatDate(conversation.updated_at, { month: 'short', day: 'numeric' })}</small>
-                  </span>
-                </button>
-              ))
+              filteredContactMessages.map((conversation) => {
+                const presence = getPresenceStatus(conversation.user, onlineUserIds)
+
+                return (
+                  <button
+                    type="button"
+                    key={conversation.id}
+                    className={`admin-contact-list-item${selectedContactMessage?.id === conversation.id ? ' is-active' : ''}`}
+                    onClick={() => setSelectedContactId(conversation.id)}
+                  >
+                    <span className="profile-avatar profile-avatar-small">
+                      {conversation.user?.profile_image_url
+                        ? <img src={conversation.user.profile_image_url} alt={conversation.user.name} />
+                        : conversation.user?.name?.charAt(0).toUpperCase() || '?'}
+                    </span>
+                    <span className="admin-contact-list-copy">
+                      <strong>{conversation.user?.name ?? 'Community Member'}</strong>
+                      <small>{conversation.user?.email}</small>
+                      <span className={`admin-presence-text${presence.online ? ' is-online' : ''}`}>
+                        <i aria-hidden="true" />
+                        {presence.label}
+                      </span>
+                      <span>{conversation.latest_message?.message ?? 'No messages yet.'}</span>
+                    </span>
+                    <span className="admin-contact-meta">
+                      {conversation.unread_count ? <b>{conversation.unread_count}</b> : null}
+                      <small>{formatDate(conversation.updated_at, { month: 'short', day: 'numeric' })}</small>
+                    </span>
+                  </button>
+                )
+              })
             ) : (
               renderEmpty('No support conversations match your filters.', 'mail')
             )}
@@ -1328,22 +1392,31 @@ function AdminDashboard({ user, token, onLogout }) {
 
         <section className="admin-contact-detail-pane">
           {selectedContactMessage ? (
+            (() => {
+              const presence = getPresenceStatus(selectedContactMessage.user, onlineUserIds)
+
+              return (
             <>
               <div className="admin-support-chat-header">
-                <span className="profile-avatar">
-                  {selectedContactMessage.user?.profile_image_url
-                    ? <img src={selectedContactMessage.user.profile_image_url} alt={selectedContactMessage.user.name} />
-                    : selectedContactMessage.user?.name?.charAt(0).toUpperCase() || '?'}
-                </span>
-                <div>
-                  <h3>{selectedContactMessage.user?.name ?? 'Community Member'}</h3>
-                  <p>
-                    {normalizePresenceIds(onlineUserIds).includes(normalizeRealtimeUserId(selectedContactMessage.user?.id))
-                      ? 'Online'
-                      : 'Offline'}
-                    {typingSupportUserId ? ' · typing...' : ''}
-                  </p>
+                <div className="admin-support-chat-person">
+                  <span className="profile-avatar">
+                    {selectedContactMessage.user?.profile_image_url
+                      ? <img src={selectedContactMessage.user.profile_image_url} alt={selectedContactMessage.user.name} />
+                      : selectedContactMessage.user?.name?.charAt(0).toUpperCase() || '?'}
+                  </span>
+                  <div>
+                    <h3>{selectedContactMessage.user?.name ?? 'Community Member'}</h3>
+                    <p>
+                      <i className={presence.online ? 'is-online' : ''} />
+                      {presence.label}
+                      {typingSupportUserId ? ' · typing...' : ''}
+                    </p>
+                  </div>
                 </div>
+                <span className="admin-support-context-badge">
+                  <Icon name="mail" />
+                  <span>Support Chat</span>
+                </span>
               </div>
 
               {supportError ? <p className="settings-feedback is-error">{supportError}</p> : null}
@@ -1352,17 +1425,39 @@ function AdminDashboard({ user, token, onLogout }) {
                 {supportLoading ? (
                   <div className="admin-support-empty">Loading conversation...</div>
                 ) : supportMessages.length > 0 ? (
-                  supportMessages.map((message) => {
+                  supportMessages.map((message, index) => {
                     const isOwn = normalizeRealtimeUserId(message.sender?.id) === normalizeRealtimeUserId(user.id)
+                    const previousMessage = supportMessages[index - 1]
+                    const shouldShowDate = getDateKey(message.created_at) !== getDateKey(previousMessage?.created_at)
+                    const isDeleted = message.is_deleted || !message.message
 
                     return (
-                      <article key={message.id} className={`admin-support-bubble ${isOwn ? 'is-own' : 'is-user'}`}>
-                        <p>{message.message}</p>
-                        <span>
-                          {formatDate(message.created_at, { hour: 'numeric', minute: '2-digit' })}
-                          {isOwn ? ` · ${message.is_read ? 'Read' : 'Sent'}` : ''}
-                        </span>
-                      </article>
+                      <Fragment key={message.id}>
+                        {shouldShowDate ? (
+                          <div key={`date-${message.id}`} className="admin-support-date-separator">
+                            <span>{formatDate(message.created_at, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+                        ) : null}
+                        <article className={`admin-support-bubble ${isOwn ? 'is-own' : 'is-user'}${isDeleted ? ' is-deleted' : ''}`}>
+                          <div className="admin-support-message-actions" aria-label="Message actions">
+                            <button
+                              type="button"
+                              onClick={() => void navigator.clipboard?.writeText(message.message ?? '')}
+                              disabled={isDeleted || !message.message}
+                            >
+                              Copy
+                            </button>
+                            <button type="button" disabled>
+                              Delete
+                            </button>
+                          </div>
+                          <p>{isDeleted ? 'This message was deleted' : message.message}</p>
+                          <span>
+                            {formatDate(message.created_at, { hour: 'numeric', minute: '2-digit' })}
+                            {isOwn ? ` · ${message.is_read ? 'Read' : 'Sent'}` : ''}
+                          </span>
+                        </article>
+                      </Fragment>
                     )
                   })
                 ) : (
@@ -1372,6 +1467,9 @@ function AdminDashboard({ user, token, onLogout }) {
               </div>
 
               <form className="admin-support-composer" onSubmit={handleSupportReply}>
+                <button type="button" className="admin-support-attach-button" aria-label="Attach file">
+                  <Icon name="paperclip" />
+                </button>
                 <textarea
                   rows="1"
                   value={supportDraft}
@@ -1380,14 +1478,16 @@ function AdminDashboard({ user, token, onLogout }) {
                 />
                 <button
                   type="submit"
-                  className="quick-action-button"
+                  className="admin-support-send-button"
                   disabled={savingContactId === selectedContactMessage.id || !supportDraft.trim()}
+                  aria-label="Send support reply"
                 >
                   <Icon name="send" />
-                  <span>{savingContactId === selectedContactMessage.id ? 'Sending...' : 'Reply'}</span>
                 </button>
               </form>
             </>
+              )
+            })()
           ) : (
             renderEmpty('Select a support conversation to start chatting.', 'mail')
           )}
@@ -1498,6 +1598,8 @@ function AdminDashboard({ user, token, onLogout }) {
 
   const renderSelectedPost = () => {
     if (!selectedPost) return null
+    const selectedPostImageUrl = getPostImageSource(selectedPost)
+    const shouldShowSelectedPostImage = selectedPostImageUrl && !selectedPostImageFailed
 
     return (
       <div className="admin-detail-modal-overlay" role="presentation" onMouseDown={() => setSelectedPost(null)}>
@@ -1525,8 +1627,24 @@ function AdminDashboard({ user, token, onLogout }) {
             </div>
 
             <div className="admin-detail-modal-body">
-              {selectedPost.image_url ? (
-                <img className="admin-item-image" src={selectedPost.image_url} alt={selectedPost.title || selectedPost.post_type} />
+              {shouldShowSelectedPostImage ? (
+                <button
+                  type="button"
+                  className="admin-item-image-button"
+                  onClick={() => setSelectedPostImagePreview(true)}
+                  aria-label={`View larger image for ${selectedPost.title || selectedPost.post_type}`}
+                >
+                  <img
+                    className="admin-item-image"
+                    src={selectedPostImageUrl}
+                    alt={selectedPost.title || selectedPost.post_type}
+                    onError={() => setSelectedPostImageFailed(true)}
+                  />
+                  <span className="admin-item-image-hint">
+                    <Icon name="search" />
+                    View image
+                  </span>
+                </button>
               ) : (
                 <div className="admin-item-image admin-item-image-placeholder">
                   <Icon name={selectedPost.post_type === 'lost' ? 'search' : 'inventory'} />
@@ -1643,6 +1761,33 @@ function AdminDashboard({ user, token, onLogout }) {
               </button>
             </div>
           </div>
+
+          {selectedPostImagePreview && shouldShowSelectedPostImage ? (
+            <div
+              className="community-image-modal-root admin-image-preview-root"
+              onMouseDown={(event) => {
+                event.stopPropagation()
+                setSelectedPostImagePreview(false)
+              }}
+            >
+              <div className="community-image-modal-overlay" />
+              <div className="community-image-modal-shell" onMouseDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="modal-close-button community-image-close"
+                  onClick={() => setSelectedPostImagePreview(false)}
+                  aria-label="Close image preview"
+                >
+                  <Icon name="close" />
+                </button>
+                <img
+                  className="community-image-modal-image"
+                  src={selectedPostImageUrl}
+                  alt={selectedPost.title || selectedPost.post_type}
+                />
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
     )
@@ -1972,7 +2117,7 @@ function AdminDashboard({ user, token, onLogout }) {
   }
 
   return (
-    <div className="admin-dashboard-page">
+    <div className={`admin-dashboard-page${adminMenuOpen ? ' is-admin-menu-open' : ''}`}>
       <header className="admin-dashboard-topbar">
         <div className="container admin-dashboard-topbar-inner">
           <div className="admin-dashboard-brand">
@@ -1984,6 +2129,16 @@ function AdminDashboard({ user, token, onLogout }) {
           </div>
 
           <div className="admin-dashboard-topbar-actions">
+            <button
+              type="button"
+              className="hamburger-button admin-menu-toggle"
+              onClick={() => setAdminMenuOpen((current) => !current)}
+              aria-label="Toggle admin menu"
+              aria-expanded={adminMenuOpen}
+            >
+              <Icon name={adminMenuOpen ? 'close' : 'menu'} />
+            </button>
+
             <button type="button" className="admin-icon-button" aria-label="Admin notifications" onClick={() => navigate('/admin/notifications')}>
               <Icon name="bell" />
               {sidebarCountMap.notifications ? <span>{sidebarCountMap.notifications}</span> : null}
@@ -2015,10 +2170,6 @@ function AdminDashboard({ user, token, onLogout }) {
                     <strong>{user?.name || 'Admin'}</strong>
                     <span>Administrator</span>
                   </div>
-                  <button type="button" onClick={() => { setAdminProfileOpen(false); navigate('/admin/settings') }}>
-                    <Icon name="settings" />
-                    Settings
-                  </button>
                   <button type="button" onClick={onLogout}>
                     <Icon name="logout" />
                     Logout
@@ -2032,7 +2183,13 @@ function AdminDashboard({ user, token, onLogout }) {
 
       <main className="admin-dashboard-main">
         <div className="container admin-dashboard-layout">
-          <aside className="admin-dashboard-sidebar">
+          <button
+            type="button"
+            className={`mobile-nav-backdrop admin-sidebar-backdrop${adminMenuOpen ? ' is-open' : ''}`}
+            aria-label="Close admin menu"
+            onClick={() => setAdminMenuOpen(false)}
+          />
+          <aside className={`admin-dashboard-sidebar${adminMenuOpen ? ' is-open' : ''}`}>
             <div className="dashboard-panel admin-sidebar-card">
               <h2>Admin Menu</h2>
               <nav className="admin-sidebar-nav" aria-label="Admin sections">
@@ -2049,6 +2206,7 @@ function AdminDashboard({ user, token, onLogout }) {
                           if (nextPath !== location.pathname) {
                             navigate(nextPath)
                           }
+                          setAdminMenuOpen(false)
                         }}
                       >
                         <span className="admin-sidebar-link-icon">

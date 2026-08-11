@@ -38,6 +38,7 @@ class AuthController extends Controller
         ]);
 
         $token = $user->createToken('findit-auth-token')->plainTextToken;
+        $user->markOnline();
 
         return response()->json([
             'message' => 'Registration successful.',
@@ -99,6 +100,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
+        $request->user()?->markOffline();
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json([
@@ -116,6 +118,7 @@ class AuthController extends Controller
             'nrc_no' => $user->nrc_no,
             'role' => $user->role,
             'status' => $user->status,
+            ...$user->presencePayload(),
             'show_phone_publicly' => (bool) $user->show_phone_publicly,
             'show_email_publicly' => (bool) $user->show_email_publicly,
             'show_location_publicly' => (bool) $user->show_location_publicly,

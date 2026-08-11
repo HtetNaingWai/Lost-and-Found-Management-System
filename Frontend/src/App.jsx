@@ -5,8 +5,11 @@ import AuthModal from './components/AuthModal'
 import LandingPage from './pages/LandingPage'
 import DashboardLayout from './pages/DashboardLayout'
 import { HowItWorksPage, PrivacyPolicyPage, SecurityPage } from './pages/InfoPages'
+import PublicLayout from './layouts/PublicLayout'
+import UserLayout from './layouts/UserLayout'
 import { apiRequest, AUTH_STORAGE_KEY, clearAuth, saveAuth } from './services/api'
 import { disconnectRealtime } from './services/realtime'
+import { usePresenceHeartbeat } from './hooks/usePresenceHeartbeat'
 import BrandMark from './components/BrandMark'
 import AdminDashboard from './pages/AdminDashboard'
 
@@ -40,6 +43,22 @@ function AdminRoute({ authUser, children }) {
   return children
 }
 
+function InfoRoute({ authUser, onLogout, onOpenModal, children }) {
+  if (authUser) {
+    return (
+      <UserLayout user={authUser} onLogout={onLogout}>
+        {children}
+      </UserLayout>
+    )
+  }
+
+  return (
+    <PublicLayout onOpenModal={onOpenModal}>
+      {children}
+    </PublicLayout>
+  )
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation()
 
@@ -56,6 +75,8 @@ function App() {
   const [authToken, setAuthToken] = useState('')
   const [authReady, setAuthReady] = useState(false)
   const navigate = useNavigate()
+
+  usePresenceHeartbeat(authToken, authUser, setAuthUser)
 
   useEffect(() => {
     const bootAuth = async () => {
@@ -152,9 +173,30 @@ function App() {
                 </GuestOnlyRoute>
               )}
             />
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="/security" element={<SecurityPage />} />
-            <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route
+              path="/privacy-policy"
+              element={(
+                <InfoRoute authUser={authUser} onLogout={handleLogout} onOpenModal={setAuthModal}>
+                  <PrivacyPolicyPage />
+                </InfoRoute>
+              )}
+            />
+            <Route
+              path="/security"
+              element={(
+                <InfoRoute authUser={authUser} onLogout={handleLogout} onOpenModal={setAuthModal}>
+                  <SecurityPage />
+                </InfoRoute>
+              )}
+            />
+            <Route
+              path="/how-it-works"
+              element={(
+                <InfoRoute authUser={authUser} onLogout={handleLogout} onOpenModal={setAuthModal}>
+                  <HowItWorksPage />
+                </InfoRoute>
+              )}
+            />
             <Route
               path="/community"
               element={(

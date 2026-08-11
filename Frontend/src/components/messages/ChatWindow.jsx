@@ -1,11 +1,12 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment } from 'react'
 import Icon from '../Icon'
 import ChatHeader from './ChatHeader'
 import MessageBubble from './MessageBubble'
 import MessageComposer from './MessageComposer'
 import MessagesSkeleton from './MessagesSkeleton'
-import { normalizePresenceIds, normalizeRealtimeUserId } from '../../services/realtime'
+import { normalizeRealtimeUserId } from '../../services/realtime'
 import { formatDate } from '../../utils/formatDate'
+import { getPresenceStatus } from '../../utils/presence'
 
 function ChatWindow({
   user,
@@ -32,8 +33,6 @@ function ChatWindow({
   showNewMessageButton,
   onJumpToLatest,
 }) {
-  const onlineIdSet = useMemo(() => new Set(normalizePresenceIds(onlineUserIds)), [onlineUserIds])
-
   if (!activeConversation) {
     return (
       <section className="messages-chat-panel">
@@ -50,7 +49,8 @@ function ChatWindow({
 
   const participant = activeConversation.participant
   const participantId = normalizeRealtimeUserId(participant.id)
-  const isOnline = onlineIdSet.has(participantId)
+  const presence = getPresenceStatus(participant, onlineUserIds)
+  const isOnline = presence.online
   const isTyping = normalizeRealtimeUserId(typingParticipantId) === participantId
 
   return (
@@ -58,6 +58,7 @@ function ChatWindow({
       <ChatHeader
         participant={participant}
         isOnline={isOnline}
+        presenceLabel={presence.label}
         isTyping={isTyping}
         relatedItem={relatedItem}
         onBack={onBack}

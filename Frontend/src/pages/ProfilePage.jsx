@@ -7,9 +7,11 @@ import RatingSummary from '../components/ratings/RatingSummary'
 import ReviewList from '../components/ratings/ReviewList'
 import { apiRequest } from '../services/api'
 import { formatDate } from '../utils/formatDate'
+import { getPresenceStatus } from '../utils/presence'
 
 function ProfilePage({ user, token, onUserUpdate }) {
   const navigate = useNavigate()
+  const presenceStatus = getPresenceStatus(user)
   const [profileValues, setProfileValues] = useState({
     name: user.name,
     email: user.email,
@@ -629,6 +631,10 @@ function ProfilePage({ user, token, onUserUpdate }) {
             <p>Your current account access status.</p>
           </div>
           <div className="status-chip">Active User Account</div>
+          <span className={`profile-presence-label${presenceStatus.online ? ' is-online' : ''}`}>
+            <i aria-hidden="true" />
+            {presenceStatus.label}
+          </span>
         </section>
       </div>
       <RatingModal

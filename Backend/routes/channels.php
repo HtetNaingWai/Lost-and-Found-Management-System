@@ -18,5 +18,6 @@ Broadcast::channel('messaging', function ($user) {
         'profile_image_url' => $user->profile_image
             ? asset('storage/'.$user->profile_image)
             : null,
+        ...$user->presencePayload(),
     ];
 });

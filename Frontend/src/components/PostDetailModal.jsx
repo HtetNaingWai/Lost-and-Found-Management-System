@@ -24,19 +24,25 @@ function PostDetailModal({
   const [contactPhone, setContactPhone] = useState(user?.phone ?? '')
   const [claimError, setClaimError] = useState('')
   const [imageFailed, setImageFailed] = useState(false)
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false)
 
   useEffect(() => {
     if (!post) return undefined
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
+        if (imagePreviewOpen) {
+          setImagePreviewOpen(false)
+          return
+        }
+
         onClose()
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [post, onClose])
+  }, [imagePreviewOpen, post, onClose])
 
   useEffect(() => {
     if (!post) return
@@ -46,6 +52,7 @@ function PostDetailModal({
     setContactPhone(user?.phone ?? '')
     setClaimError('')
     setImageFailed(false)
+    setImagePreviewOpen(false)
   }, [post, user?.phone])
 
   if (!post) return null
@@ -102,16 +109,17 @@ function PostDetailModal({
   }
 
   return (
-    <div className="community-modal-root" onClick={onClose}>
-      <div className="community-modal-overlay" />
-      <div className="community-modal-shell">
-        <section
-          className="community-modal-card post-detail-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="post-detail-title"
-          onClick={(event) => event.stopPropagation()}
-        >
+    <>
+      <div className="community-modal-root" onClick={onClose}>
+        <div className="community-modal-overlay" />
+        <div className="community-modal-shell">
+          <section
+            className="community-modal-card post-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="post-detail-title"
+            onClick={(event) => event.stopPropagation()}
+          >
           <div className="community-modal-top">
             <div>
               <h2 id="post-detail-title">{title || 'Community Post Details'}</h2>
@@ -135,14 +143,23 @@ function PostDetailModal({
 
           <div className="post-detail-body">
             {shouldShowImage ? (
-              <div className="post-detail-image-wrap">
+              <button
+                type="button"
+                className="post-detail-image-wrap post-detail-image-button"
+                onClick={() => setImagePreviewOpen(true)}
+                aria-label={`View larger image for ${title || 'post attachment'}`}
+              >
                 <img
                   className="post-detail-image"
                   src={imageUrl}
                   alt={title || 'Post attachment'}
                   onError={() => setImageFailed(true)}
                 />
-              </div>
+                <span className="post-detail-image-hint">
+                  <Icon name="search" />
+                  View image
+                </span>
+              </button>
             ) : null}
 
             <div className="community-post-header">
@@ -364,9 +381,27 @@ function PostDetailModal({
               ) : null}
             </div>
           </div>
-        </section>
+          </section>
+        </div>
       </div>
-    </div>
+
+      {imagePreviewOpen && shouldShowImage ? (
+        <div className="community-image-modal-root" onClick={() => setImagePreviewOpen(false)}>
+          <div className="community-image-modal-overlay" />
+          <div className="community-image-modal-shell" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="modal-close-button community-image-close"
+              onClick={() => setImagePreviewOpen(false)}
+              aria-label="Close image preview"
+            >
+              <Icon name="close" />
+            </button>
+            <img className="community-image-modal-image" src={imageUrl} alt={title || 'Post attachment'} />
+          </div>
+        </div>
+      ) : null}
+    </>
   )
 }
 

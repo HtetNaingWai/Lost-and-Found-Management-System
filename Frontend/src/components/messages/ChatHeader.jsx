@@ -1,9 +1,9 @@
 import Icon from '../Icon'
 import UserAvatar from './UserAvatar'
 
-function ChatHeader({ participant, isOnline, isTyping, relatedItem, onBack, onUserProfileClick }) {
+function ChatHeader({ participant, isOnline, presenceLabel, isTyping, relatedItem, onBack, onUserProfileClick }) {
   const itemType = relatedItem?.post_type ?? relatedItem?.type
-  const statusLabel = isTyping ? 'Typing...' : isOnline ? 'Online' : 'Offline'
+  const statusLabel = isTyping ? 'Typing...' : presenceLabel ?? (isOnline ? 'Online' : 'Offline')
 
   return (
     <div className="messages-thread-header">

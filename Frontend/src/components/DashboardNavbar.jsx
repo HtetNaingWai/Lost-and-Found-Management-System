@@ -45,6 +45,7 @@ function DashboardNavbar({
             className="hamburger-button"
             onClick={onToggleMobileMenu}
             aria-label="Toggle menu"
+            aria-expanded={mobileMenuOpen}
           >
             <Icon name="menu" />
           </button>
@@ -68,6 +69,13 @@ function DashboardNavbar({
             </NavLink>
           ))}
         </nav>
+
+        <button
+          type="button"
+          className={`mobile-nav-backdrop${mobileMenuOpen ? ' is-open' : ''}`}
+          aria-label="Close menu"
+          onClick={onNavClose}
+        />
 
         <div className="dashboard-toolbar">
           <div className="notification-wrap" ref={notificationRef}>

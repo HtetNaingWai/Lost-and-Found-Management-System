@@ -242,6 +242,7 @@ class ProfileController extends Controller
             'profile_image_url' => $user->profile_image
                 ? asset('storage/'.$user->profile_image)
                 : null,
+            ...$user->presencePayload(),
             'member_since' => $user->created_at?->toISOString(),
             'public_phone' => (! $isUnavailable && $user->show_phone_publicly) ? $user->phone : null,
             'public_email' => (! $isUnavailable && $user->show_email_publicly) ? $user->email : null,
@@ -259,6 +260,7 @@ class ProfileController extends Controller
             'nrc_no' => $user->nrc_no,
             'role' => $user->role,
             'status' => $user->status,
+            ...$user->presencePayload(),
             'show_phone_publicly' => (bool) $user->show_phone_publicly,
             'show_email_publicly' => (bool) $user->show_email_publicly,
             'show_location_publicly' => (bool) $user->show_location_publicly,

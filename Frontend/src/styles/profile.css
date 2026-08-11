@@ -324,6 +324,30 @@
   color: #64748b;
 }
 
+.profile-presence-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.profile-presence-label i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.profile-presence-label.is-online {
+  color: #16a34a;
+}
+
+.profile-presence-label.is-online i {
+  background: #22c55e;
+}
+
 .public-profile-actions {
   display: flex;
   gap: 10px;

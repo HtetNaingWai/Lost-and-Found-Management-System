@@ -1,6 +1,7 @@
 import Icon from '../Icon'
 import ConversationItem from './ConversationItem'
-import { normalizePresenceIds, normalizeRealtimeUserId } from '../../services/realtime'
+import { normalizeRealtimeUserId } from '../../services/realtime'
+import { getPresenceStatus } from '../../utils/presence'
 
 function ConversationList({
   conversations,
@@ -15,8 +16,6 @@ function ConversationList({
   onOpenConversation,
   onDeleteConversation,
 }) {
-  const onlineIdSet = new Set(normalizePresenceIds(onlineUserIds))
-
   return (
     <section className="messages-conversation-panel">
       <div className="messages-panel-heading">
@@ -60,7 +59,7 @@ function ConversationList({
                 typingConversationId === conversation.id
                 && normalizeRealtimeUserId(typingParticipantId) === normalizeRealtimeUserId(conversation.participant?.id)
               }
-              isOnline={onlineIdSet.has(normalizeRealtimeUserId(conversation.participant?.id))}
+              presence={getPresenceStatus(conversation.participant, onlineUserIds)}
               onClick={() => onOpenConversation(conversation.participant, conversation.related_item ?? null, conversation)}
               onDelete={() => onDeleteConversation?.(conversation)}
             />

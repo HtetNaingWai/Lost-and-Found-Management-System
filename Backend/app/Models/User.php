@@ -30,6 +30,8 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'is_online',
+        'last_seen_at',
         'banned_at',
         'ban_reason',
         'show_phone_publicly',
@@ -57,6 +59,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'is_online' => 'boolean',
+            'last_seen_at' => 'datetime',
             'banned_at' => 'datetime',
             'show_phone_publicly' => 'boolean',
             'show_email_publicly' => 'boolean',
@@ -118,5 +122,35 @@ class User extends Authenticatable
     public function savedPosts(): HasMany
     {
         return $this->hasMany(SavedPost::class);
+    }
+
+    public function markOnline(): void
+    {
+        $this->forceFill([
+            'is_online' => true,
+            'last_seen_at' => now(),
+        ])->save();
+    }
+
+    public function markOffline(): void
+    {
+        $this->forceFill([
+            'is_online' => false,
+            'last_seen_at' => now(),
+        ])->save();
+    }
+
+    public function presencePayload(): array
+    {
+        $isRecentlySeen = $this->last_seen_at !== null
+            && $this->last_seen_at->greaterThanOrEqualTo(now()->subSeconds(75));
+        $isOnline = (bool) $this->is_online && $isRecentlySeen;
+
+        return [
+            'is_online' => $isOnline,
+            'isOnline' => $isOnline,
+            'last_seen_at' => optional($this->last_seen_at)?->toISOString(),
+            'lastSeen' => optional($this->last_seen_at)?->toISOString(),
+        ];
     }
 }

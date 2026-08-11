@@ -1,10 +1,11 @@
 import { formatDate } from '../../utils/formatDate'
 import UserAvatar from './UserAvatar'
 
-function ConversationItem({ conversation, isActive, isOnline, isTyping, onClick, onDelete }) {
+function ConversationItem({ conversation, isActive, presence, isTyping, onClick, onDelete }) {
   const participant = conversation.participant
   const latestMessage = conversation.latest_message
   const relatedItem = conversation.related_item
+  const isOnline = Boolean(presence?.online)
   const latestPreview = isTyping
     ? 'typing...'
     : (
@@ -27,7 +28,7 @@ function ConversationItem({ conversation, isActive, isOnline, isTyping, onClick,
         <span className={`messages-preview${isTyping ? ' is-typing' : ''}`}>{latestPreview}</span>
         {relatedItem ? <span className="messages-context-preview">{relatedItem.title || 'Related item'}</span> : null}
         <span className={`messages-presence-text${isOnline ? ' is-online' : ''}`}>
-          {isOnline ? 'Online' : 'Offline'}
+          {presence?.label ?? 'Offline'}
         </span>
       </span>
       {conversation.unread_count > 0 ? (

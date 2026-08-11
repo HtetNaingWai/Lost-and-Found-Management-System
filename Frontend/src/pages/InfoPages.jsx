@@ -1,5 +1,3 @@
-import Footer from '../components/Footer'
-import GuestNav from '../components/GuestNav'
 import Icon from '../components/Icon'
 
 const privacySections = [
@@ -36,21 +34,17 @@ const workflowSteps = [
 
 function InfoPageShell({ eyebrow, title, subtitle, children }) {
   return (
-    <div className="landing-page info-page">
-      <GuestNav />
-      <main className="info-page-main">
-        <section className="container info-page-hero">
-          <p className="hero-eyebrow">
-            <Icon name="shield" />
-            <span>{eyebrow}</span>
-          </p>
-          <h1>{title}</h1>
-          <p>{subtitle}</p>
-        </section>
-        {children}
-      </main>
-      <Footer />
-    </div>
+    <main className="info-page-main">
+      <section className="container info-page-hero">
+        <p className="hero-eyebrow">
+          <Icon name="shield" />
+          <span>{eyebrow}</span>
+        </p>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </section>
+      {children}
+    </main>
   )
 }
 

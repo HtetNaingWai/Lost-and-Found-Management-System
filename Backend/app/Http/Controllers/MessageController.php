@@ -469,7 +469,7 @@ class MessageController extends Controller
     {
         if ($context['community_post_id']) {
             $post = CommunityPost::query()
-                ->with(['user:id,name,email,profile_image', 'category:id,name', 'claims.user:id,name,email,profile_image'])
+                ->with(['user:id,name,email,profile_image,is_online,last_seen_at', 'category:id,name', 'claims.user:id,name,email,profile_image,is_online,last_seen_at'])
                 ->find($context['community_post_id']);
 
             return $post ? $this->transformCommunityPost($post) : null;
@@ -477,7 +477,7 @@ class MessageController extends Controller
 
         if ($context['item_id']) {
             $item = Item::query()
-                ->with(['user:id,name,email,profile_image', 'category:id,name'])
+                ->with(['user:id,name,email,profile_image,is_online,last_seen_at', 'category:id,name'])
                 ->find($context['item_id']);
 
             return $item ? $this->transformItem($item) : null;
@@ -545,19 +545,20 @@ class MessageController extends Controller
             'profile_image_url' => $user->profile_image
                 ? asset('storage/'.$user->profile_image)
                 : null,
+            ...$user->presencePayload(),
         ];
     }
 
     protected function messageRelations(): array
     {
         return [
-            'sender:id,name,email,profile_image',
-            'receiver:id,name,email,profile_image',
-            'item.user:id,name,email,profile_image',
+            'sender:id,name,email,profile_image,is_online,last_seen_at',
+            'receiver:id,name,email,profile_image,is_online,last_seen_at',
+            'item.user:id,name,email,profile_image,is_online,last_seen_at',
             'item.category:id,name',
-            'communityPost.user:id,name,email,profile_image',
+            'communityPost.user:id,name,email,profile_image,is_online,last_seen_at',
             'communityPost.category:id,name',
-            'communityPost.claims.user:id,name,email,profile_image',
+            'communityPost.claims.user:id,name,email,profile_image,is_online,last_seen_at',
         ];
     }
 }

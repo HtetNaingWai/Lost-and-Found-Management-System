@@ -7,6 +7,7 @@ import ReviewList from '../components/ratings/ReviewList'
 import { apiRequest } from '../services/api'
 import { formatDate } from '../utils/formatDate'
 import { resolveImageUrl } from '../utils/imageUrl'
+import { getPresenceStatus } from '../utils/presence'
 
 function normalizeUserId(value) {
   const parsed = Number(value)
@@ -46,6 +47,7 @@ function PublicProfilePage({
   posts = [],
   approvedItems = [],
   myItems = [],
+  onlineUserIds = [],
 }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -97,6 +99,7 @@ function PublicProfilePage({
   }
   const availability = profilePayload?.availability ?? {}
   const ratingSummary = profilePayload?.rating_summary ?? { average: null, count: 0 }
+  const presenceStatus = getPresenceStatus(profileUser, onlineUserIds)
 
   const publicPosts = useMemo(() => {
     if (!profileUserId) return []
@@ -198,7 +201,13 @@ function PublicProfilePage({
             {availability.status === 'unavailable' ? (
               <p>{availability.message}</p>
             ) : (
-              <RatingSummary summary={ratingSummary} />
+              <>
+                <span className={`profile-presence-label${presenceStatus.online ? ' is-online' : ''}`}>
+                  <i aria-hidden="true" />
+                  {presenceStatus.label}
+                </span>
+                <RatingSummary summary={ratingSummary} />
+              </>
             )}
           </div>
           <div className="public-profile-actions">

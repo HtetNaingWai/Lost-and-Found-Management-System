@@ -160,7 +160,7 @@ function DashboardContent({
         />
       )
     case 'contact':
-      return <ContactPage user={user} token={token} />
+      return <ContactPage user={user} token={token} onlineUserIds={onlineUserIds} />
     case 'profile':
       return <ProfilePage user={user} token={token} onUserUpdate={onUserUpdate} />
     case 'public-profile':
@@ -172,6 +172,7 @@ function DashboardContent({
           approvedItems={approvedItems}
           myItems={myItems}
           onStartMessage={onStartMessage}
+          onlineUserIds={onlineUserIds}
         />
       )
     default:

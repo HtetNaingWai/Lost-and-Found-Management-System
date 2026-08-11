@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\MessageRead;
+use App\Events\MessageDeleted;
 use App\Events\MessageSent;
 use App\Events\UserStoppedTyping;
 use App\Events\UserTyping;
@@ -13,6 +14,7 @@ use App\Services\NotificationService;
 use App\Services\RealtimeBroadcaster;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 class SupportConversationController extends Controller
@@ -32,7 +34,8 @@ class SupportConversationController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'message' => ['required', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000', 'required_without:attachment'],
+            'attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'required_without:message'],
         ]);
 
         $conversation = $this->findOrCreateConversation($request->user());
@@ -48,11 +51,20 @@ class SupportConversationController extends Controller
             ]);
         }
 
+        $attachmentPath = null;
+
+        if ($request->hasFile('attachment')) {
+            $attachmentPath = $request->file('attachment')->store('message-attachments', 'public');
+        }
+
         $message = Message::create([
             'sender_id' => $request->user()->id,
             'receiver_id' => $admin->id,
             'support_conversation_id' => $conversation->id,
-            'message' => trim($validated['message']),
+            'message' => trim((string) ($validated['message'] ?? '')) ?: null,
+            'attachment_path' => $attachmentPath,
+            'attachment_type' => $request->file('attachment')?->getMimeType(),
+            'attachment_name' => $request->file('attachment')?->getClientOriginalName(),
             'is_read' => false,
         ]);
 
@@ -111,7 +123,8 @@ class SupportConversationController extends Controller
     public function adminStore(Request $request, SupportConversation $supportConversation): JsonResponse
     {
         $validated = $request->validate([
-            'message' => ['required', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000', 'required_without:attachment'],
+            'attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'required_without:message'],
         ]);
 
         $supportConversation->update([
@@ -120,11 +133,20 @@ class SupportConversationController extends Controller
             'resolved_at' => $supportConversation->status === 'resolved' ? null : $supportConversation->resolved_at,
         ]);
 
+        $attachmentPath = null;
+
+        if ($request->hasFile('attachment')) {
+            $attachmentPath = $request->file('attachment')->store('message-attachments', 'public');
+        }
+
         $message = Message::create([
             'sender_id' => $request->user()->id,
             'receiver_id' => $supportConversation->user_id,
             'support_conversation_id' => $supportConversation->id,
-            'message' => trim($validated['message']),
+            'message' => trim((string) ($validated['message'] ?? '')) ?: null,
+            'attachment_path' => $attachmentPath,
+            'attachment_type' => $request->file('attachment')?->getMimeType(),
+            'attachment_name' => $request->file('attachment')?->getClientOriginalName(),
             'is_read' => false,
         ]);
 
@@ -167,6 +189,37 @@ class SupportConversationController extends Controller
         );
 
         return $this->adminStore($request, $conversation);
+    }
+
+    public function destroyMessage(Request $request, Message $message): JsonResponse
+    {
+        abort_unless($message->support_conversation_id, Response::HTTP_NOT_FOUND);
+        abort_unless($message->sender_id === $request->user()->id, Response::HTTP_FORBIDDEN);
+
+        if ($message->attachment_path) {
+            Storage::disk('public')->delete($message->attachment_path);
+        }
+
+        $message->update([
+            'message' => null,
+            'attachment_path' => null,
+            'attachment_type' => null,
+            'attachment_name' => null,
+            'deleted_at' => now(),
+        ]);
+
+        $payload = $this->transformMessage($message->fresh($this->messageRelations()));
+
+        RealtimeBroadcaster::dispatch(new MessageDeleted(
+            $payload,
+            (int) $message->sender_id,
+            (int) $message->receiver_id,
+        ));
+
+        return response()->json([
+            'message' => 'Message deleted successfully.',
+            'data' => $payload,
+        ]);
     }
 
     public function adminResolve(Request $request, SupportConversation $supportConversation): JsonResponse
@@ -339,11 +392,15 @@ class SupportConversationController extends Controller
 
     protected function transformMessage(Message $message): array
     {
+        $isDeleted = $message->deleted_at !== null;
+
         return [
             'id' => $message->id,
-            'message' => $message->message,
+            'message' => $isDeleted ? null : $message->message,
             'is_read' => $message->is_read,
             'read_at' => optional($message->read_at)?->toISOString(),
+            'is_deleted' => $isDeleted,
+            'deleted_at' => optional($message->deleted_at)?->toISOString(),
             'support_conversation_id' => $message->support_conversation_id,
             'created_at' => optional($message->created_at)?->toISOString(),
             'sender' => $message->sender ? $this->transformUser($message->sender) : null,
@@ -351,9 +408,9 @@ class SupportConversationController extends Controller
             'related_item' => null,
             'item_id' => null,
             'community_post_id' => null,
-            'attachment_url' => null,
-            'attachment_type' => null,
-            'attachment_name' => null,
+            'attachment_url' => !$isDeleted && $message->attachment_path ? asset('storage/'.$message->attachment_path) : null,
+            'attachment_type' => $isDeleted ? null : $message->attachment_type,
+            'attachment_name' => $isDeleted ? null : $message->attachment_name,
         ];
     }
 
@@ -364,24 +421,25 @@ class SupportConversationController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'profile_image_url' => $user->profile_image ? asset('storage/'.$user->profile_image) : null,
+            ...$user->presencePayload(),
         ];
     }
 
     protected function conversationRelations(): array
     {
         return [
-            'user:id,name,email,profile_image,status',
-            'admin:id,name,email,profile_image,status',
-            'messages.sender:id,name,email,profile_image',
-            'messages.receiver:id,name,email,profile_image',
+            'user:id,name,email,profile_image,status,is_online,last_seen_at',
+            'admin:id,name,email,profile_image,status,is_online,last_seen_at',
+            'messages.sender:id,name,email,profile_image,is_online,last_seen_at',
+            'messages.receiver:id,name,email,profile_image,is_online,last_seen_at',
         ];
     }
 
     protected function messageRelations(): array
     {
         return [
-            'sender:id,name,email,profile_image',
-            'receiver:id,name,email,profile_image',
+            'sender:id,name,email,profile_image,is_online,last_seen_at',
+            'receiver:id,name,email,profile_image,is_online,last_seen_at',
         ];
     }
 }

@@ -646,6 +646,7 @@ class AdminController extends Controller
             'phone' => $user->phone,
             'role' => $user->role,
             'status' => $user->status,
+            ...$user->presencePayload(),
             'banned_at' => optional($user->banned_at)?->toISOString(),
             'ban_reason' => $user->ban_reason,
             'created_at' => optional($user->created_at)?->toISOString(),
