@@ -15,6 +15,7 @@ class Message extends Model
     protected $fillable = [
         'sender_id',
         'receiver_id',
+        'support_conversation_id',
         'item_id',
         'community_post_id',
         'message',
@@ -48,6 +49,11 @@ class Message extends Model
     public function receiver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'receiver_id');
+    }
+
+    public function supportConversation(): BelongsTo
+    {
+        return $this->belongsTo(SupportConversation::class);
     }
 
     public function item(): BelongsTo

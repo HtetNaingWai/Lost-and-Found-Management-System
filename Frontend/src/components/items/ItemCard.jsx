@@ -3,7 +3,15 @@ import Icon from '../Icon'
 import { formatDate } from '../../utils/formatDate'
 import { resolveImageUrl } from '../../utils/imageUrl'
 
-function ItemCard({ item, type, onClick, isSaved = false, onToggleSave, savingSave = false }) {
+function ItemCard({
+  item,
+  type,
+  onClick,
+  onUserProfileClick,
+  isSaved = false,
+  onToggleSave,
+  savingSave = false,
+}) {
   const [imageFailed, setImageFailed] = useState(false)
   const imageUrl = resolveImageUrl(item.image_url || item.image)
   const shouldShowImage = imageUrl && !imageFailed
@@ -63,7 +71,21 @@ function ItemCard({ item, type, onClick, isSaved = false, onToggleSave, savingSa
         </p>
         <p className="recent-item-date">{formatDate(item.item_date || item.date)}</p>
         <p className="recent-item-submeta">
-          {item.category?.name || 'General'} · Posted by {item.user?.name || 'Unknown user'}
+          {item.category?.name || 'General'} · Posted by{' '}
+          {item.user?.id ? (
+            <button
+              type="button"
+              className="inline-profile-link"
+              onClick={(event) => {
+                event.stopPropagation()
+                onUserProfileClick?.(item.user)
+              }}
+            >
+              {item.user.name || 'Unknown user'}
+            </button>
+          ) : (
+            item.user?.name || 'Unknown user'
+          )}
         </p>
       </div>
     </article>

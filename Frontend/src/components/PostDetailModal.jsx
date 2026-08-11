@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from './Icon'
+import RatingSummary from './ratings/RatingSummary'
 import { formatDate } from '../utils/formatDate'
 import { resolveImageUrl } from '../utils/imageUrl'
 
@@ -8,6 +9,7 @@ function PostDetailModal({
   user,
   onClose,
   onStartMessage,
+  onUserProfileClick,
   onSubmitClaim,
   onMarkClaimReturned,
   existingClaim,
@@ -144,7 +146,12 @@ function PostDetailModal({
             ) : null}
 
             <div className="community-post-header">
-              <div className="community-post-user">
+              <button
+                type="button"
+                className="community-post-user community-author-link"
+                disabled={!owner.id}
+                onClick={() => onUserProfileClick?.(owner)}
+              >
                 <span className="profile-avatar">
                   {profileImageUrl ? (
                     <img src={profileImageUrl} alt={owner.name} />
@@ -154,6 +161,7 @@ function PostDetailModal({
                 </span>
                 <div>
                   <strong>{owner.name || 'Unknown user'}</strong>
+                  <RatingSummary summary={owner.rating_summary} compact />
                   <p>
                     {formatDate(createdAt, {
                       month: 'short',
@@ -164,7 +172,7 @@ function PostDetailModal({
                     })}
                   </p>
                 </div>
-              </div>
+              </button>
 
               <div className="community-post-badges">
                 <span className={`badge badge-type ${postType === 'lost' ? 'badge-lost' : postType === 'found' ? 'badge-found' : 'badge-approved'}`}>
@@ -205,7 +213,7 @@ function PostDetailModal({
 
             {existingClaim ? (
               <div className="settings-note claim-status-note">
-                <strong>Your Claim Status:</strong> {existingClaimStatusLabel}
+                <strong>Your Return Status:</strong> {existingClaimStatusLabel}
                 {existingClaim.returned_at ? ` • Returned ${formatDate(existingClaim.returned_at)}` : ''}
                 {existingClaim.admin_note ? ` • Note: ${existingClaim.admin_note}` : ''}
               </div>
@@ -214,15 +222,25 @@ function PostDetailModal({
             {isOwner && Array.isArray(post.claims) && post.claims.length > 0 ? (
               <div className="post-detail-claims">
                 <div className="section-panel-heading">
-                  <h3>Claims on This Item</h3>
-                  <p>Track members who submitted ownership claims for your found item.</p>
+                  <h3>Return Requests on This Item</h3>
+                  <p>Track members connected to this item return.</p>
                 </div>
 
                 <div className="community-claim-list">
                   {post.claims.map((claim) => (
                     <article className="community-claim-item" key={claim.id}>
                       <div className="community-claim-copy">
-                        <strong>{claim.user?.name || 'Unknown claimant'}</strong>
+                        {claim.user?.id ? (
+                          <button
+                            type="button"
+                            className="inline-profile-link claim-profile-link"
+                            onClick={() => onUserProfileClick?.(claim.user)}
+                          >
+                            {claim.user.name || 'Unknown claimant'}
+                          </button>
+                        ) : (
+                          <strong>{claim.user?.name || 'Unknown claimant'}</strong>
+                        )}
                         <p>{claim.contact_phone || 'No contact phone'}</p>
                         <p>{claim.proof_description || 'No proof description provided.'}</p>
                         <p>
@@ -242,7 +260,7 @@ function PostDetailModal({
                             className="secondary-action-button"
                             onClick={() => onStartMessage?.(claim.user, post)}
                           >
-                            Message Claimer
+                            {postType === 'lost' ? 'Message Helper' : 'Message Owner'}
                           </button>
                         ) : null}
                         {['pending', 'approved'].includes(claim.status) ? (
@@ -251,7 +269,7 @@ function PostDetailModal({
                             className="quick-action-button"
                             disabled={savingClaimId === claim.id}
                             onClick={() => {
-                              const confirmed = window.confirm('Confirm that this item has been returned to the claimant.')
+                              const confirmed = window.confirm('This confirms that the item has been successfully returned. The listing will be removed from active Lost/Found results and both participants can leave feedback.')
                               if (confirmed) {
                                 void onMarkClaimReturned?.({ ...claim, community_post: post })
                               }
@@ -326,7 +344,7 @@ function PostDetailModal({
                   Message Owner
                 </button>
               ) : null}
-              {postType === 'lost' ? (
+              {postType === 'lost' && !isOwner ? (
                 <button
                   type="button"
                   className="quick-action-button"
@@ -335,7 +353,7 @@ function PostDetailModal({
                   Message Owner
                 </button>
               ) : null}
-              {postType === 'community' ? (
+              {postType === 'community' && !isOwner ? (
                 <button
                   type="button"
                   className="quick-action-button"

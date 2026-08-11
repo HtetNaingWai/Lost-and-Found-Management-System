@@ -25,14 +25,22 @@ function ItemDetailsSidebar({
   const normalizedStatus = relatedItem?.status?.toLowerCase()
   const canMarkReturned = (
     isOwner
-    && itemType === 'found'
+    && ['lost', 'found'].includes(itemType)
     && normalizedStatus !== 'returned'
     && normalizedStatus !== 'rejected'
+    && activeConversation?.participant?.id
   )
   const activeClaim = relatedItem?.claims?.find((claim) => (
     ['pending', 'approved'].includes(claim.status)
     && (!activeConversation?.participant?.id || Number(claim.user?.id) === Number(activeConversation.participant.id))
   ))
+  const returnTarget = activeClaim
+    ? { ...activeClaim, community_post: relatedItem }
+    : {
+        id: `post-${relatedItem?.id}-${activeConversation?.participant?.id}`,
+        community_post: relatedItem,
+        participant: activeConversation?.participant,
+      }
 
   return (
     <aside className="messages-item-panel">
@@ -70,14 +78,14 @@ function ItemDetailsSidebar({
 
           <div className="messages-item-actions">
             <button type="button" className="quick-action-button messages-sidebar-action" onClick={() => onViewItem?.(relatedItem)}>View Item</button>
-            {canMarkReturned && activeClaim ? (
+            {canMarkReturned ? (
               <button
                 type="button"
                 className="secondary-action-button messages-sidebar-action"
-                disabled={savingClaimId === activeClaim.id}
-                onClick={() => onMarkClaimReturned?.(activeClaim)}
+                disabled={savingClaimId === returnTarget.id}
+                onClick={() => onMarkClaimReturned?.(returnTarget)}
               >
-                {savingClaimId === activeClaim.id ? 'Saving...' : 'Mark as Returned'}
+                {savingClaimId === returnTarget.id ? 'Saving...' : 'Mark as Returned'}
               </button>
             ) : null}
             <button type="button" className="secondary-action-button messages-sidebar-action" disabled>Report User</button>

@@ -2,6 +2,7 @@ import BrandMark from './BrandMark'
 import Icon from './Icon'
 import ProfileDropdown from './ProfileDropdown'
 import { NavLink } from 'react-router-dom'
+import { getNotificationIcon, getNotificationMeta } from '../utils/notifications'
 
 function DashboardNavbar({
   user,
@@ -22,7 +23,11 @@ function DashboardNavbar({
   notificationRef,
   unreadNotifications,
   onNotificationClick,
+  onMarkAllNotificationsRead,
+  onViewAllNotifications,
 }) {
+  const previewNotifications = notifications.slice(0, 5)
+
   return (
     <header className="topbar topbar-authenticated">
       <div className="container dashboard-navbar-shell">
@@ -73,34 +78,61 @@ function DashboardNavbar({
               aria-label="Notifications"
             >
               <Icon name="bell" />
-              {unreadNotifications > 0 ? <span className="notification-dot" /> : null}
+              {unreadNotifications > 0 ? (
+                <span className="notification-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>
+              ) : null}
             </button>
 
             {notificationOpen ? (
               <div className="notification-dropdown">
                 <div className="notification-dropdown-header">
                   <strong>Notifications</strong>
+                  {unreadNotifications > 0 ? (
+                    <button
+                      type="button"
+                      className="notification-mark-read"
+                      onClick={onMarkAllNotificationsRead}
+                    >
+                      Mark all read
+                    </button>
+                  ) : null}
                 </div>
                 <div className="notification-list">
-                  {notifications.length > 0 ? (
-                    notifications.map((notification) => (
+                  {previewNotifications.length > 0 ? (
+                    previewNotifications.map((notification) => (
                       <button
                         type="button"
-                        className="notification-item notification-item-button"
+                        className={`notification-item notification-item-button${notification.read ? '' : ' is-unread'}`}
                         key={notification.id}
                         onClick={() => onNotificationClick?.(notification)}
                       >
+                        <span className={`notification-icon notification-icon-${notification.type}`}>
+                          <Icon name={getNotificationIcon(notification)} />
+                        </span>
                         <div className="notification-item-copy">
-                          <strong>{notification.title}</strong>
+                          <strong>
+                            <span>{notification.title}</span>
+                            {!notification.read ? <i aria-hidden="true" /> : null}
+                          </strong>
                           <p>{notification.detail}</p>
+                          <small>{getNotificationMeta(notification)}</small>
                         </div>
-                        <span>{notification.time}</span>
                       </button>
                     ))
                   ) : (
-                    <div className="notification-empty">No new notifications</div>
+                    <div className="notification-empty">
+                      <strong>You're all caught up</strong>
+                      <span>No new notifications.</span>
+                    </div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  className="notification-view-all"
+                  onClick={onViewAllNotifications}
+                >
+                  View all notifications <span aria-hidden="true">→</span>
+                </button>
               </div>
             ) : null}
           </div>

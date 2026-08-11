@@ -1,13 +1,17 @@
 import { formatDate } from '../../utils/formatDate'
 import UserAvatar from './UserAvatar'
 
-function ConversationItem({ conversation, isActive, isOnline, onClick, onDelete }) {
+function ConversationItem({ conversation, isActive, isOnline, isTyping, onClick, onDelete }) {
   const participant = conversation.participant
   const latestMessage = conversation.latest_message
   const relatedItem = conversation.related_item
-  const latestPreview = latestMessage?.is_deleted
-    ? 'This message was deleted.'
-    : latestMessage?.message || (latestMessage?.attachment_url ? 'Image attachment' : 'Start a new conversation')
+  const latestPreview = isTyping
+    ? 'typing...'
+    : (
+        latestMessage?.is_deleted
+          ? 'This message was deleted.'
+          : latestMessage?.message || (latestMessage?.attachment_url ? 'Image attachment' : 'Start a new conversation')
+      )
 
   if (!participant) return null
 
@@ -20,7 +24,7 @@ function ConversationItem({ conversation, isActive, isOnline, onClick, onDelete 
           <strong>{participant.name}</strong>
           <small>{latestMessage?.created_at ? formatDate(latestMessage.created_at, { hour: 'numeric', minute: '2-digit' }) : 'New'}</small>
         </span>
-        <span className="messages-preview">{latestPreview}</span>
+        <span className={`messages-preview${isTyping ? ' is-typing' : ''}`}>{latestPreview}</span>
         {relatedItem ? <span className="messages-context-preview">{relatedItem.title || 'Related item'}</span> : null}
         <span className={`messages-presence-text${isOnline ? ' is-online' : ''}`}>
           {isOnline ? 'Online' : 'Offline'}

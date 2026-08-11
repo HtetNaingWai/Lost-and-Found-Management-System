@@ -1,5 +1,6 @@
 import Icon from '../Icon'
 import ConversationItem from './ConversationItem'
+import { normalizePresenceIds, normalizeRealtimeUserId } from '../../services/realtime'
 
 function ConversationList({
   conversations,
@@ -9,10 +10,12 @@ function ConversationList({
   activeParticipantId,
   activeConversationId,
   onlineUserIds,
+  typingParticipantId,
+  typingConversationId,
   onOpenConversation,
   onDeleteConversation,
 }) {
-  const onlineIdSet = new Set(onlineUserIds.map((id) => Number(id)))
+  const onlineIdSet = new Set(normalizePresenceIds(onlineUserIds))
 
   return (
     <section className="messages-conversation-panel">
@@ -51,9 +54,13 @@ function ConversationList({
               isActive={
                 activeConversationId
                   ? activeConversationId === conversation.id
-                  : activeParticipantId === conversation.participant?.id
+                  : normalizeRealtimeUserId(activeParticipantId) === normalizeRealtimeUserId(conversation.participant?.id)
               }
-              isOnline={onlineIdSet.has(Number(conversation.participant?.id))}
+              isTyping={
+                typingConversationId === conversation.id
+                && normalizeRealtimeUserId(typingParticipantId) === normalizeRealtimeUserId(conversation.participant?.id)
+              }
+              isOnline={onlineIdSet.has(normalizeRealtimeUserId(conversation.participant?.id))}
               onClick={() => onOpenConversation(conversation.participant, conversation.related_item ?? null, conversation)}
               onDelete={() => onDeleteConversation?.(conversation)}
             />

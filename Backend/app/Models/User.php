@@ -30,6 +30,12 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'banned_at',
+        'ban_reason',
+        'show_phone_publicly',
+        'show_email_publicly',
+        'show_location_publicly',
+        'public_location',
     ];
 
     /**
@@ -51,6 +57,10 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'banned_at' => 'datetime',
+            'show_phone_publicly' => 'boolean',
+            'show_email_publicly' => 'boolean',
+            'show_location_publicly' => 'boolean',
             'password' => 'hashed',
         ];
     }
@@ -65,6 +75,16 @@ class User extends Authenticatable
         return $this->hasMany(Claim::class);
     }
 
+    public function ratingsGiven(): HasMany
+    {
+        return $this->hasMany(UserRating::class, 'reviewer_id');
+    }
+
+    public function ratingsReceived(): HasMany
+    {
+        return $this->hasMany(UserRating::class, 'reviewed_user_id');
+    }
+
     public function sentMessages(): HasMany
     {
         return $this->hasMany(Message::class, 'sender_id');
@@ -73,6 +93,11 @@ class User extends Authenticatable
     public function receivedMessages(): HasMany
     {
         return $this->hasMany(Message::class, 'receiver_id');
+    }
+
+    public function supportConversations(): HasMany
+    {
+        return $this->hasMany(SupportConversation::class);
     }
 
     public function communityPosts(): HasMany

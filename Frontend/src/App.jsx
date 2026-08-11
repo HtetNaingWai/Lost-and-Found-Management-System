@@ -6,6 +6,7 @@ import LandingPage from './pages/LandingPage'
 import DashboardLayout from './pages/DashboardLayout'
 import { HowItWorksPage, PrivacyPolicyPage, SecurityPage } from './pages/InfoPages'
 import { apiRequest, AUTH_STORAGE_KEY, clearAuth, saveAuth } from './services/api'
+import { disconnectRealtime } from './services/realtime'
 import BrandMark from './components/BrandMark'
 import AdminDashboard from './pages/AdminDashboard'
 
@@ -108,6 +109,7 @@ function App() {
     } catch {
       // Ignore logout request failures and clear local auth anyway.
     } finally {
+      disconnectRealtime()
       clearAuth()
       setAuthToken('')
       setAuthUser(null)
@@ -195,6 +197,14 @@ function App() {
             />
             <Route
               path="/profile"
+              element={(
+                <ProtectedRoute authUser={authUser}>
+                  {renderDashboard()}
+                </ProtectedRoute>
+              )}
+            />
+            <Route
+              path="/users/:id"
               element={(
                 <ProtectedRoute authUser={authUser}>
                   {renderDashboard()}

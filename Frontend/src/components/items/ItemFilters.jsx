@@ -1,6 +1,6 @@
 import Icon from '../Icon'
 
-const ITEM_FILTER_CATEGORIES = [
+const FALLBACK_FILTER_CATEGORIES = [
   'Documents',
   'Electronics',
   'Clothing',
@@ -18,6 +18,7 @@ function ItemFilters({
   filterRef,
   draftFilters,
   activeFilterCount,
+  categories = FALLBACK_FILTER_CATEGORIES,
   onDraftChange,
   onClearFilters,
   onApplyFilters,
@@ -57,18 +58,10 @@ function ItemFilters({
 
               <div className="items-filter-grid">
                 <label className="items-filter-field">
-                  <span>Item Type</span>
-                  <select name="itemType" value={draftFilters.itemType} onChange={onDraftChange}>
-                    <option value="lost">Lost</option>
-                    <option value="found">Found</option>
-                  </select>
-                </label>
-
-                <label className="items-filter-field">
                   <span>Category</span>
                   <select name="category" value={draftFilters.category} onChange={onDraftChange}>
-                    <option value="">All categories</option>
-                    {ITEM_FILTER_CATEGORIES.map((category) => (
+                    <option value="">All Categories</option>
+                    {categories.map((category) => (
                       <option key={category} value={category}>
                         {category}
                       </option>
@@ -77,24 +70,27 @@ function ItemFilters({
                 </label>
 
                 <label className="items-filter-field">
-                  <span>Location</span>
-                  <input
-                    name="location"
-                    value={draftFilters.location}
-                    onChange={onDraftChange}
-                    placeholder="City, street, or area"
-                  />
+                  <span>Date</span>
+                  <select name="datePreset" value={draftFilters.datePreset} onChange={onDraftChange}>
+                    <option value="any">Any Date</option>
+                    <option value="today">Today</option>
+                    <option value="7-days">Last 7 Days</option>
+                    <option value="30-days">Last 30 Days</option>
+                    <option value="custom">Custom Date</option>
+                  </select>
                 </label>
 
-                <label className="items-filter-field">
-                  <span>Date</span>
-                  <input name="date" type="date" value={draftFilters.date} onChange={onDraftChange} />
-                </label>
+                {draftFilters.datePreset === 'custom' ? (
+                  <label className="items-filter-field">
+                    <span>Custom Date</span>
+                    <input name="customDate" type="date" value={draftFilters.customDate} onChange={onDraftChange} />
+                  </label>
+                ) : null}
               </div>
 
               <div className="items-filter-actions">
                 <button type="button" className="secondary-action-button" onClick={onClearFilters}>
-                  Clear Filters
+                  Clear
                 </button>
                 <button type="button" className="quick-action-button" onClick={onApplyFilters}>
                   Apply Filters

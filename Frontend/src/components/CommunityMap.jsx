@@ -76,53 +76,6 @@ function distanceInKm(first, second) {
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
 }
 
-function createPopupContent(post, onViewDetails) {
-  const popup = document.createElement('div')
-  popup.className = 'community-map-popup'
-  const reportType = getPostType(post)
-
-  const title = document.createElement('strong')
-  title.className = 'community-map-popup-title'
-  title.textContent = post.title || 'Community report'
-
-  const type = document.createElement('span')
-  type.className = `community-map-popup-badge is-${reportType}`
-  type.textContent = reportType === 'lost' ? 'Lost' : 'Found'
-
-  const header = document.createElement('div')
-  header.className = 'community-map-popup-header'
-  header.append(type)
-
-  const imageUrl = resolveImageUrl(post.image_url ?? post.imageUrl ?? post.image)
-
-  if (imageUrl) {
-    const image = document.createElement('img')
-    image.src = imageUrl
-    image.alt = post.title || 'Lost or found item'
-    image.onerror = () => image.remove()
-    popup.append(image)
-  }
-
-  const category = document.createElement('p')
-  category.textContent = `Category: ${getCategoryLabel(post)}`
-
-  const location = document.createElement('p')
-  location.textContent = post.location || 'Location not provided'
-
-  const date = document.createElement('p')
-  date.textContent = post.item_date ? `Date: ${post.item_date}` : ''
-
-  const viewButton = document.createElement('button')
-  viewButton.type = 'button'
-  viewButton.textContent = 'View Details'
-  viewButton.addEventListener('click', () => onViewDetails(post))
-
-  popup.append(header, title, category, location)
-  if (post.item_date) popup.append(date)
-  popup.append(viewButton)
-  return popup
-}
-
 function createMarkerIcon(post) {
   const type = getPostType(post)
   const categoryKey = getCategoryKey(post)
@@ -152,7 +105,7 @@ function CommunityMap({
   showControls = true,
   compact = false,
   approvedOnly = true,
-  showRecentPanel = true,
+  showRecentPanel = false,
 }) {
   const mapElementRef = useRef(null)
   const mapRef = useRef(null)
@@ -163,6 +116,7 @@ function CommunityMap({
   const [searchValue, setSearchValue] = useState('')
   const [mapStatus, setMapStatus] = useState('')
   const [userCoordinates, setUserCoordinates] = useState(null)
+  const [selectedMapPost, setSelectedMapPost] = useState(null)
 
   useEffect(() => {
     onViewDetailsRef.current = onViewDetails
@@ -184,11 +138,13 @@ function CommunityMap({
       center: MANDALAY_CENTER,
       zoom: 13,
       minZoom: 6,
-      zoomControl: true,
+      zoomControl: false,
       scrollWheelZoom: true,
       maxBounds: LOCAL_MAP_BOUNDS,
       maxBoundsViscosity: 0.45,
     })
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
@@ -197,6 +153,7 @@ function CommunityMap({
 
     mapRef.current = map
     markerLayerRef.current = L.layerGroup().addTo(map)
+    window.setTimeout(() => map.invalidateSize(), 0)
 
     return () => {
       map.remove()
@@ -205,7 +162,7 @@ function CommunityMap({
     }
   }, [])
 
-  const visiblePosts = useMemo(() => {
+  const filterBasePosts = useMemo(() => {
     if (!showControls) {
       return mappedPosts
     }
@@ -213,11 +170,6 @@ function CommunityMap({
     const query = searchValue.trim().toLowerCase()
 
     return mappedPosts.filter((post) => {
-      const type = getPostType(post)
-      const matchesType = activeFilter === 'All'
-        || activeFilter === 'Near Me'
-        || (activeFilter === 'Lost Items' && type === 'lost')
-        || (activeFilter === 'Found Items' && type === 'found')
       const matchesDistance = activeFilter !== 'Near Me'
         || !userCoordinates
         || distanceInKm(userCoordinates, getCoordinates(post)) <= NEAR_ME_RADIUS_KM
@@ -225,20 +177,33 @@ function CommunityMap({
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query))
 
-      return matchesType && matchesDistance && matchesSearch
+      return matchesDistance && matchesSearch
     })
   }, [activeFilter, mappedPosts, searchValue, showControls, userCoordinates])
 
+  const visiblePosts = useMemo(() => {
+    if (!showControls || activeFilter === 'All' || activeFilter === 'Near Me') {
+      return filterBasePosts
+    }
+
+    return filterBasePosts.filter((post) => {
+      const type = getPostType(post)
+
+      return (activeFilter === 'Lost Items' && type === 'lost')
+        || (activeFilter === 'Found Items' && type === 'found')
+    })
+  }, [activeFilter, filterBasePosts, showControls])
+
   const summaryCounts = useMemo(() => {
-    const lost = visiblePosts.filter((post) => getPostType(post) === 'lost').length
-    const found = visiblePosts.filter((post) => getPostType(post) === 'found').length
+    const lost = filterBasePosts.filter((post) => getPostType(post) === 'lost').length
+    const found = filterBasePosts.filter((post) => getPostType(post) === 'found').length
 
     return {
       lost,
       found,
       total: lost + found,
     }
-  }, [visiblePosts])
+  }, [filterBasePosts])
 
   const recentMappedPosts = useMemo(
     () => [...visiblePosts]
@@ -254,12 +219,28 @@ function CommunityMap({
 
     if (!map || !markerLayer) return
 
+    map.invalidateSize()
+
     markerLayer.clearLayers()
     markerRefs.current.clear()
 
     visiblePosts.forEach((post) => {
       const marker = L.marker(getCoordinates(post), { icon: createMarkerIcon(post) })
-      marker.bindPopup(createPopupContent(post, (selectedPost) => onViewDetailsRef.current?.(selectedPost)))
+      marker.on('click', () => {
+        try {
+          if (!post?.id) {
+            setMapStatus('This report cannot be opened because its item data is incomplete.')
+            setSelectedMapPost(null)
+            return
+          }
+
+          setSelectedMapPost(post)
+          setMapStatus('')
+        } catch {
+          setMapStatus('We could not open this map item. Please try another marker.')
+          setSelectedMapPost(null)
+        }
+      })
       marker.addTo(markerLayer)
       markerRefs.current.set(post.id, marker)
     })
@@ -271,10 +252,13 @@ function CommunityMap({
       })
       setMapStatus('')
     } else if (mappedPosts.length === 0) {
+      setSelectedMapPost(null)
       setMapStatus('No approved lost or found reports with map coordinates are available yet.')
     } else if (activeFilter === 'Near Me' && userCoordinates) {
+      setSelectedMapPost(null)
       setMapStatus(`No approved reports found within ${NEAR_ME_RADIUS_KM} km of your location.`)
     } else {
+      setSelectedMapPost(null)
       setMapStatus('No reports match the current map filters.')
     }
   }, [activeFilter, mappedPosts.length, userCoordinates, visiblePosts])
@@ -291,7 +275,7 @@ function CommunityMap({
     map.flyTo(getCoordinates(post), Math.max(map.getZoom(), 14), {
       duration: 0.45,
     })
-    marker.openPopup()
+    setSelectedMapPost(post)
   }
 
   const handleFilter = (filter) => {
@@ -321,13 +305,13 @@ function CommunityMap({
       className={`community-map-panel${compact ? ' is-compact' : ''}`}
       aria-label="Interactive Lost and Found Map"
     >
-      <div className="community-map-topline">
-        <div>
-          <p className="community-map-eyebrow">{eyebrow}</p>
-          <h1>{title}</h1>
-          <p>{subtitle}</p>
-        </div>
-        {showControls ? (
+      {showControls ? (
+        <div className="community-map-topline">
+          <div>
+            <p className="community-map-eyebrow">{eyebrow}</p>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+          </div>
           <label className="community-map-search">
             <Icon name="search" />
             <input
@@ -338,45 +322,87 @@ function CommunityMap({
               aria-label="Search lost or found items"
             />
           </label>
-        ) : null}
-      </div>
-
-      {showControls ? (
-        <div className="community-map-filter-row" aria-label="Map filters">
-          {MAP_FILTERS.map((filter) => (
-            <button
-              type="button"
-              key={filter}
-              className={`community-map-filter${activeFilter === filter ? ' is-active' : ''}`}
-              onClick={() => handleFilter(filter)}
-              aria-pressed={activeFilter === filter}
-            >
-              {filter}
-            </button>
-          ))}
         </div>
       ) : null}
-
-      <div className="community-map-summary-row" aria-label="Map item summary">
-        <span className="community-map-summary-chip is-lost">
-          <strong>{summaryCounts.lost}</strong> Lost Items
-        </span>
-        <span className="community-map-summary-chip is-found">
-          <strong>{summaryCounts.found}</strong> Found Items
-        </span>
-        <span className="community-map-summary-chip">
-          <strong>{summaryCounts.total}</strong> Total Items
-        </span>
-      </div>
 
       <div className={`community-map-content-grid${shouldShowRecentPanel ? ' has-recent-panel' : ''}`}>
         <div className="community-leaflet-map-wrap">
           <div ref={mapElementRef} className="community-leaflet-map" aria-label="Interactive lost and found map" />
           {mapStatus ? <p className="community-map-status">{mapStatus}</p> : null}
+          {showControls ? (
+            <div className="community-map-filter-row" aria-label="Map filters">
+              {MAP_FILTERS.map((filter) => {
+                const isLost = filter === 'Lost Items'
+                const isFound = filter === 'Found Items'
+                const count = isLost ? summaryCounts.lost : isFound ? summaryCounts.found : null
+
+                return (
+                  <button
+                    type="button"
+                    key={filter}
+                    className={`community-map-filter${activeFilter === filter ? ' is-active' : ''}${isLost ? ' is-lost' : ''}${isFound ? ' is-found' : ''}`}
+                    onClick={() => handleFilter(filter)}
+                    aria-pressed={activeFilter === filter}
+                  >
+                    {isLost ? 'Lost' : isFound ? 'Found' : filter}
+                    {count !== null ? <strong>{count}</strong> : null}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
           <div className="community-map-legend" aria-label="Map legend">
             <span><i className="is-lost" />Lost</span>
             <span><i className="is-found" />Found</span>
           </div>
+          {selectedMapPost ? (
+            <article className="community-map-preview-card" aria-live="polite">
+              <button
+                type="button"
+                className="community-map-preview-close"
+                onClick={() => setSelectedMapPost(null)}
+                aria-label="Close map item preview"
+              >
+                <Icon name="close" />
+              </button>
+              <div className="community-map-preview-image">
+                {resolveImageUrl(selectedMapPost.image_url ?? selectedMapPost.imageUrl ?? selectedMapPost.image) ? (
+                  <img
+                    src={resolveImageUrl(selectedMapPost.image_url ?? selectedMapPost.imageUrl ?? selectedMapPost.image)}
+                    alt={selectedMapPost.title || 'Lost or found item'}
+                    onError={(event) => {
+                      event.currentTarget.style.display = 'none'
+                    }}
+                  />
+                ) : (
+                  <Icon name="inventory" />
+                )}
+              </div>
+              <div className="community-map-preview-copy">
+                <span className={`community-map-popup-badge is-${getPostType(selectedMapPost)}`}>
+                  {getPostType(selectedMapPost) === 'lost' ? 'Lost' : 'Found'}
+                </span>
+                <h3>{selectedMapPost.title || 'Untitled report'}</h3>
+                <p>{getCategoryLabel(selectedMapPost)}</p>
+                <p>{selectedMapPost.location || 'Location not provided'}</p>
+                <p>{selectedMapPost.item_date || 'Date not provided'}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!selectedMapPost?.id || selectedMapPost?.deleted_at) {
+                      setMapStatus('This report is no longer available.')
+                      setSelectedMapPost(null)
+                      return
+                    }
+
+                    onViewDetailsRef.current?.(selectedMapPost)
+                  }}
+                >
+                  View Details
+                </button>
+              </div>
+            </article>
+          ) : null}
         </div>
 
         {shouldShowRecentPanel ? (

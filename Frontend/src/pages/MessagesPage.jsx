@@ -4,6 +4,46 @@ import ChatWindow from '../components/messages/ChatWindow'
 import ConversationList from '../components/messages/ConversationList'
 import ItemDetailsSidebar from '../components/messages/ItemDetailsSidebar'
 import PostDetailModal from '../components/PostDetailModal'
+import Icon from '../components/Icon'
+
+function MessageReturnConfirmModal({ target, onClose, onConfirm, saving }) {
+  if (!target) return null
+
+  const title = target.community_post?.title || 'this item'
+
+  return (
+    <div className="community-modal-root" onClick={onClose}>
+      <div className="community-modal-overlay" />
+      <div className="community-modal-shell">
+        <section className="community-modal-card claim-confirm-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="community-modal-top">
+            <div>
+              <h2>Mark item as returned?</h2>
+              <p>This confirms that {title} has been successfully returned. The listing will be removed from active Lost/Found results and both participants can leave feedback.</p>
+            </div>
+            <button type="button" className="modal-close-button" onClick={onClose}>
+              <Icon name="close" />
+            </button>
+          </div>
+          <div className="community-modal-actions">
+            <button type="button" className="secondary-action-button" onClick={onClose}>Cancel</button>
+            <button
+              type="button"
+              className="quick-action-button"
+              disabled={saving}
+              onClick={async () => {
+                await onConfirm(target)
+                onClose()
+              }}
+            >
+              {saving ? 'Saving...' : 'Mark as Returned'}
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
 
 function MessagesPage({
   user,
@@ -17,6 +57,7 @@ function MessagesPage({
   onDeleteMessage,
   onDeleteConversation,
   onMarkClaimReturned,
+  onUserProfileClick,
   savingClaimId,
   onTypingStateChange,
   sendingMessage,
@@ -24,15 +65,20 @@ function MessagesPage({
   messageError,
   onlineUserIds,
   typingParticipantId,
+  typingConversationId,
 }) {
   const [draftMessage, setDraftMessage] = useState('')
   const [selectedAttachment, setSelectedAttachment] = useState(null)
   const [detailPost, setDetailPost] = useState(null)
+  const [returnTarget, setReturnTarget] = useState(null)
   const [conversationSearch, setConversationSearch] = useState('')
   const [mobileThreadOpen, setMobileThreadOpen] = useState(Boolean(activeConversation))
   const typingTimeoutRef = useRef(null)
   const threadEndRef = useRef(null)
+  const threadListRef = useRef(null)
   const typingStateChangeRef = useRef(onTypingStateChange)
+  const [isThreadNearBottom, setIsThreadNearBottom] = useState(true)
+  const [showNewMessageButton, setShowNewMessageButton] = useState(false)
 
   useEffect(() => {
     typingStateChangeRef.current = onTypingStateChange
@@ -180,9 +226,54 @@ function MessagesPage({
     }
   }
 
+  const updateThreadScrollState = useCallback(() => {
+    const thread = threadListRef.current
+
+    if (!thread) {
+      setIsThreadNearBottom(true)
+      setShowNewMessageButton(false)
+      return true
+    }
+
+    const distanceFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight
+    const nearBottom = distanceFromBottom < 120
+    setIsThreadNearBottom(nearBottom)
+
+    if (nearBottom) {
+      setShowNewMessageButton(false)
+    }
+
+    return nearBottom
+  }, [])
+
+  const scrollToLatest = useCallback((behavior = 'smooth') => {
+    threadEndRef.current?.scrollIntoView({ block: 'end', behavior })
+    setShowNewMessageButton(false)
+    setIsThreadNearBottom(true)
+  }, [])
+
   useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ block: 'end' })
-  }, [activeConversation?.participant?.id, loadingConversation, messages.length, typingParticipantId])
+    setShowNewMessageButton(false)
+    setIsThreadNearBottom(true)
+    window.requestAnimationFrame(() => scrollToLatest('auto'))
+  }, [activeConversation?.id, loadingConversation, scrollToLatest])
+
+  useEffect(() => {
+    if (loadingConversation) return
+
+    if (isThreadNearBottom) {
+      window.requestAnimationFrame(() => scrollToLatest('smooth'))
+      return
+    }
+
+    if (messages.length > 0) {
+      setShowNewMessageButton(true)
+    }
+  }, [isThreadNearBottom, loadingConversation, messages.length, scrollToLatest, typingParticipantId])
+
+  const activeTypingParticipantId = typingConversationId === activeConversation?.id
+    ? typingParticipantId
+    : null
 
   return (
     <DashboardPageShell>
@@ -195,6 +286,8 @@ function MessagesPage({
           activeParticipantId={activeConversation?.participant?.id}
           activeConversationId={activeConversation?.id}
           onlineUserIds={onlineUserIds}
+          typingParticipantId={typingParticipantId}
+          typingConversationId={typingConversationId}
           onOpenConversation={(participant, relatedPost, conversation) => {
             setMobileThreadOpen(true)
             onOpenConversation(participant, relatedPost, conversation)
@@ -214,13 +307,18 @@ function MessagesPage({
           onAttachmentSelect={handleAttachmentSelect}
           onAttachmentRemove={clearAttachment}
           onBack={() => setMobileThreadOpen(false)}
+          onUserProfileClick={onUserProfileClick}
           sendingMessage={sendingMessage}
           loadingConversation={loadingConversation}
           messageError={messageError}
           onlineUserIds={onlineUserIds}
-          typingParticipantId={typingParticipantId}
+          typingParticipantId={activeTypingParticipantId}
           relatedItem={relatedItem}
           threadEndRef={threadEndRef}
+          threadListRef={threadListRef}
+          onThreadScroll={updateThreadScrollState}
+          showNewMessageButton={showNewMessageButton}
+          onJumpToLatest={() => scrollToLatest('smooth')}
         />
 
         <ItemDetailsSidebar
@@ -228,16 +326,23 @@ function MessagesPage({
           user={user}
           activeConversation={activeConversation}
           onViewItem={setDetailPost}
-          onMarkClaimReturned={onMarkClaimReturned}
+          onMarkClaimReturned={setReturnTarget}
           savingClaimId={savingClaimId}
         />
       </div>
+      <MessageReturnConfirmModal
+        target={returnTarget}
+        onClose={() => setReturnTarget(null)}
+        onConfirm={onMarkClaimReturned}
+        saving={returnTarget ? savingClaimId === returnTarget.id : false}
+      />
       {detailPost ? (
         <PostDetailModal
           post={detailPost}
           user={user}
           onClose={() => setDetailPost(null)}
           onStartMessage={onOpenConversation}
+          onUserProfileClick={onUserProfileClick}
           onMarkClaimReturned={onMarkClaimReturned}
           savingClaimId={savingClaimId}
         />

@@ -30,6 +30,39 @@ class NotificationService
         return $notification;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
+    public static function createOnce(
+        int $recipientUserId,
+        string $type,
+        string $title,
+        ?string $detail,
+        array $data,
+        string $dedupeKey,
+    ): UserNotification {
+        $existingNotification = UserNotification::query()
+            ->where('recipient_user_id', $recipientUserId)
+            ->where('type', $type)
+            ->where('data->dedupe_key', $dedupeKey)
+            ->first();
+
+        if ($existingNotification) {
+            return $existingNotification;
+        }
+
+        return self::create(
+            $recipientUserId,
+            $type,
+            $title,
+            $detail,
+            [
+                ...$data,
+                'dedupe_key' => $dedupeKey,
+            ],
+        );
+    }
+
     public static function transform(UserNotification $notification): array
     {
         return [

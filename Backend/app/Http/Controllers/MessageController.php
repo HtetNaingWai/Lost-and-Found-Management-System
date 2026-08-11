@@ -30,6 +30,7 @@ class MessageController extends Controller
 
         $messages = Message::query()
             ->with($this->messageRelations())
+            ->whereNull('support_conversation_id')
             ->where(function ($query) use ($user) {
                 $query
                     ->where('sender_id', $user->id)
@@ -318,6 +319,7 @@ class MessageController extends Controller
     protected function conversationQuery(User $firstUser, User $secondUser, array $context)
     {
         return Message::query()
+            ->whereNull('support_conversation_id')
             ->where(function ($query) use ($firstUser, $secondUser) {
                 $query
                     ->where(function ($nested) use ($firstUser, $secondUser) {
@@ -358,6 +360,10 @@ class MessageController extends Controller
 
     protected function canOpenConversation(User $authUser, User $participant, array $context): bool
     {
+        if ($authUser->role === 'admin' && $participant->role === 'user') {
+            return true;
+        }
+
         if ($context['community_post_id']) {
             $post = CommunityPost::query()->find($context['community_post_id']);
             if (!$post) return false;

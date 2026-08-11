@@ -1,7 +1,7 @@
 import Icon from '../Icon'
 import UserAvatar from './UserAvatar'
 
-function ChatHeader({ participant, isOnline, isTyping, relatedItem, onBack }) {
+function ChatHeader({ participant, isOnline, isTyping, relatedItem, onBack, onUserProfileClick }) {
   const itemType = relatedItem?.post_type ?? relatedItem?.type
   const statusLabel = isTyping ? 'Typing...' : isOnline ? 'Online' : 'Offline'
 
@@ -12,7 +12,13 @@ function ChatHeader({ participant, isOnline, isTyping, relatedItem, onBack }) {
       </button>
       <UserAvatar user={participant} isOnline={isOnline} />
       <div className="messages-thread-title">
-        <strong>{participant.name}</strong>
+        <button
+          type="button"
+          className="messages-profile-link"
+          onClick={() => onUserProfileClick?.(participant)}
+        >
+          {participant.name}
+        </button>
         <span className={isTyping ? 'is-typing' : isOnline ? 'is-online' : ''}>{statusLabel}</span>
       </div>
       <div className="messages-header-item">

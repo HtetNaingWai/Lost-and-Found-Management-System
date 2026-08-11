@@ -64,9 +64,17 @@ class AuthController extends Controller
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        if ($user->status === 'banned') {
+            return response()->json([
+                'message' => trim('Your account has been suspended by FindIt Admin.'
+                    .($user->ban_reason ? ' Reason: '.$user->ban_reason : '')
+                    .' Please contact FindIt support.'),
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         if ($user->status !== 'active') {
             return response()->json([
-                'message' => 'Your account is disabled. Please contact admin.',
+                'message' => 'Your account is disabled. Please contact FindIt support.',
             ], Response::HTTP_FORBIDDEN);
         }
 
@@ -108,6 +116,10 @@ class AuthController extends Controller
             'nrc_no' => $user->nrc_no,
             'role' => $user->role,
             'status' => $user->status,
+            'show_phone_publicly' => (bool) $user->show_phone_publicly,
+            'show_email_publicly' => (bool) $user->show_email_publicly,
+            'show_location_publicly' => (bool) $user->show_location_publicly,
+            'public_location' => $user->public_location,
             'profile_image_url' => $user->profile_image
                 ? asset('storage/'.$user->profile_image)
                 : null,

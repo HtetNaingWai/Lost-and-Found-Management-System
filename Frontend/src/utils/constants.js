@@ -57,13 +57,12 @@ export const adminDashboardMenuItems = [
   { key: 'admin-lost-items', label: 'Lost Items', icon: 'search', path: '/admin/lost-items' },
   { key: 'admin-found-items', label: 'Found Items', icon: 'inventory', path: '/admin/found-items' },
   { key: 'claims', label: 'Claims', icon: 'clipboard', path: '/admin/claims' },
-  { key: 'contact-messages', label: 'Contact Messages', icon: 'mail', path: '/admin/contact-messages' },
+  { key: 'contact-messages', label: 'Messages', icon: 'mail', path: '/admin/contact-messages' },
 ]
 
 export const profileDropdownItems = [
-  { key: 'profile', label: 'My Profile', icon: 'userCircle', path: '/profile' },
-  { key: 'my-posts', label: 'My Posts', icon: 'inventory', path: '/community?section=my-posts' },
-  { key: 'my-claims', label: 'My Claims', icon: 'clipboard', path: '/community?section=my-claims' },
+  { key: 'my-profile', label: 'My Profile', icon: 'userCircle', path: '/profile' },
+  { key: 'settings', label: 'Settings', icon: 'settings', path: '/profile' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]
 
@@ -74,7 +73,7 @@ export const adminProfileDropdownItems = [
   { key: 'admin-lost-items', label: 'Manage Lost Items', icon: 'search', path: '/admin/lost-items' },
   { key: 'admin-found-items', label: 'Manage Found Items', icon: 'inventory', path: '/admin/found-items' },
   { key: 'claims', label: 'Claims', icon: 'clipboard', path: '/admin/claims' },
-  { key: 'contact-messages', label: 'Contact Messages', icon: 'mail', path: '/admin/contact-messages' },
+  { key: 'contact-messages', label: 'Messages', icon: 'mail', path: '/admin/contact-messages' },
   { key: 'logout', label: 'Logout', icon: 'logout' },
 ]
 
@@ -98,9 +97,9 @@ export const statCards = [
     icon: 'shield',
   },
   {
-    label: 'My Claim Requests',
+    label: 'My Returns',
     value: 3,
-    description: 'Claims you submitted for found items.',
+    description: 'Items you are helping return or collecting.',
     icon: 'clipboard',
   },
   {

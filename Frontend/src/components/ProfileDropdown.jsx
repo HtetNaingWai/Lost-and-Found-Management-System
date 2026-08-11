@@ -12,7 +12,7 @@ function ProfileDropdown({ open, onNavigate, onLogout, items }) {
         <button
           type="button"
           key={item.key}
-          className="profile-dropdown-item"
+          className={`profile-dropdown-item${item.key === 'logout' ? ' is-logout' : ''}`}
           onClick={() => {
             if (item.key === 'logout') {
               onLogout()

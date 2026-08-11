@@ -1,12 +1,37 @@
 import Icon from '../Icon'
 
-function ItemsViewToggle({ filteredCount, viewMode, onViewModeChange }) {
+function ItemsViewToggle({
+  filteredCount,
+  viewMode,
+  onViewModeChange,
+  activeFilterChips = [],
+  onRemoveFilter,
+}) {
   return (
     <div className="items-results-summary">
-      <span className="items-results-count">
-        <strong>{filteredCount}</strong>
-        <span>{filteredCount === 1 ? 'result' : 'results'} found</span>
-      </span>
+      <div className="items-results-copy">
+        <span className="items-results-count">
+          <strong>{filteredCount}</strong>
+          <span>{filteredCount === 1 ? 'result' : 'results'} found</span>
+        </span>
+
+        {activeFilterChips.length > 0 ? (
+          <div className="items-active-filters" aria-label="Active filters">
+            {activeFilterChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                className="items-filter-chip"
+                onClick={() => onRemoveFilter?.(chip.key)}
+                aria-label={`Remove ${chip.label} filter`}
+              >
+                <span>{chip.label}: {chip.value}</span>
+                <Icon name="close" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       <div className="items-view-toggle" role="group" aria-label="Choose list or map view">
         <button

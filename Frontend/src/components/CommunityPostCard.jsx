@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from './Icon'
+import RatingSummary from './ratings/RatingSummary'
 import { formatDate } from '../utils/formatDate'
 import { resolveImageUrl } from '../utils/imageUrl'
 
@@ -7,6 +8,7 @@ function CommunityPostCard({
   post,
   onClick,
   onImageClick,
+  onUserProfileClick,
   isSaved,
   onToggleSave,
   savingSave = false,
@@ -59,19 +61,28 @@ function CommunityPostCard({
       tabIndex={onClick ? 0 : undefined}
     >
       <div className="community-post-header">
-        <div className="community-post-user">
+        <button
+          type="button"
+          className="community-post-user community-author-link"
+          disabled={!post.user?.id}
+          onClick={(event) => {
+            event.stopPropagation()
+            onUserProfileClick?.(post.user)
+          }}
+        >
           <span className="profile-avatar">
             {profileImageUrl ? (
-              <img src={profileImageUrl} alt={post.user.name} />
+              <img src={profileImageUrl} alt={post.user?.name} />
             ) : (
-              post.user.name.charAt(0).toUpperCase()
+              (post.user?.name || 'U').charAt(0).toUpperCase()
             )}
           </span>
           <div>
-            <strong>{post.user.name}</strong>
+            <strong>{post.user?.name || 'Unknown user'}</strong>
+            <RatingSummary summary={post.user?.rating_summary} compact />
             <p>{formatDate(createdAt, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>
           </div>
-        </div>
+        </button>
 
         <div className="community-post-header-actions">
           <button

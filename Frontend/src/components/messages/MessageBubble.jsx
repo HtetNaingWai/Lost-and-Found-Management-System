@@ -27,7 +27,7 @@ function MessageBubble({ message, isOwn, onDelete }) {
           <img className="message-bubble-attachment" src={attachmentUrl} alt="Message attachment" />
         ) : null}
         {!isDeleted && message.message ? <p>{message.message}</p> : null}
-        <span>{formatDate(message.created_at, { hour: 'numeric', minute: '2-digit' })}</span>
+        <span className="message-bubble-time">{formatDate(message.created_at, { hour: 'numeric', minute: '2-digit' })}</span>
       </div>
 
       {!isDeleted ? <div className="message-action-wrap">

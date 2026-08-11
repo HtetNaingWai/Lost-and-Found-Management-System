@@ -52,6 +52,10 @@
   .admin-form-grid {
     grid-template-columns: 1fr;
   }
+
+  .items-filter-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -198,10 +202,13 @@
     justify-content: space-between;
   }
 
-  .notification-dropdown,
   .profile-dropdown {
     width: 100%;
     max-width: 100%;
+  }
+
+  .dashboard-toolbar .notification-dropdown {
+    width: min(390px, calc(100vw - 24px));
   }
 
   .dashboard-hero-grid,
@@ -248,6 +255,46 @@
 
   .community-post-image {
     height: 240px;
+  }
+
+  .items-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .items-filter-wrap,
+  .items-filter-button {
+    width: 100%;
+  }
+
+  .items-filter-button {
+    justify-content: center;
+  }
+
+  .items-filter-popover {
+    width: 100%;
+    right: 0;
+  }
+
+  .items-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .items-filter-actions {
+    justify-content: stretch;
+  }
+
+  .items-filter-actions .secondary-action-button,
+  .items-filter-actions .quick-action-button {
+    flex: 1 1 140px;
+  }
+
+  .items-pagination {
+    gap: 6px;
+  }
+
+  .items-pagination-button {
+    width: 36px;
+    height: 36px;
   }
 
   .messages-contact-grid {
@@ -417,6 +464,7 @@
     grid-template-columns: 1fr;
   }
 
+  .claim-people-grid,
   .claim-info-grid,
   .claim-timeline {
     grid-template-columns: 1fr;
@@ -566,10 +614,43 @@
     height: 44px;
   }
 
-  .notification-dropdown,
   .profile-dropdown {
     position: static;
     margin-top: 10px;
+  }
+
+  .dashboard-toolbar .notification-dropdown {
+    position: fixed;
+    top: 74px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - 96px);
+    margin-top: 0;
+    border-radius: 22px;
+    z-index: 180;
+  }
+
+  .dashboard-toolbar .notification-list {
+    max-height: calc(100vh - 230px);
+  }
+
+  .notifications-page-toolbar,
+  .notification-filter-group {
+    width: 100%;
+  }
+
+  .notification-filter-group {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .notifications-page-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .notifications-page-row time {
+    grid-column: 2;
   }
 
   .community-side-card,

@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import DashboardNavbar from '../components/DashboardNavbar'
 import Footer from '../components/Footer'
+import RatingModal from '../components/ratings/RatingModal'
 import CommunityPage from './CommunityPage'
 import ContactPage from './ContactPage'
 import ItemsPage from './ItemsPage'
 import MessagesPage from './MessagesPage'
 import ProfilePage from './ProfilePage'
+import PublicProfilePage from './PublicProfilePage'
 import ReportItemsPage from './ReportItemsPage'
 import {
   dashboardMenuItems,
@@ -14,11 +16,13 @@ import {
 } from '../utils/constants'
 import { apiRequest } from '../services/api'
 import {
-  disconnectRealtime,
   getConversationChannelName,
   getPresenceChannelName,
   getRealtimeClient,
   getUserChannelName,
+  logRealtimeDebug,
+  normalizePresenceIds,
+  normalizeRealtimeUserId,
 } from '../services/realtime'
 import { useSavedPosts } from '../hooks/useSavedPosts'
 import { formatDate } from '../utils/formatDate'
@@ -36,6 +40,7 @@ function DashboardContent({
   myClaims,
   onItemSubmitted,
   notifications,
+  onNotificationClick,
   messageConversations,
   activeConversation,
   activeConversationMessages,
@@ -55,8 +60,10 @@ function DashboardContent({
   loadingConversation,
   messageError,
   onStartMessage,
+  onUserProfileClick,
   onlineUserIds,
   typingParticipantId,
+  typingConversationId,
   savedPostsState,
   onDeletePost,
   onUpdatePost,
@@ -75,6 +82,7 @@ function DashboardContent({
           onCreatePost={onItemSubmitted}
           onNavigate={onNavigate}
           notifications={notifications}
+          onNotificationClick={onNotificationClick}
           onStartMessage={onStartMessage}
           onSubmitClaim={onSubmitClaim}
           onUpdateClaim={onUpdateClaim}
@@ -86,6 +94,7 @@ function DashboardContent({
           onDeletePost={onDeletePost}
           onUpdatePost={onUpdatePost}
           deletingPostId={deletingPostId}
+          onUserProfileClick={onUserProfileClick}
         />
       )
     case 'lost-items':
@@ -99,6 +108,7 @@ function DashboardContent({
           onSubmitClaim={onSubmitClaim}
           submittingClaim={submittingClaim}
           savedPostsState={savedPostsState}
+          onUserProfileClick={onUserProfileClick}
         />
       )
     case 'found-items':
@@ -112,6 +122,7 @@ function DashboardContent({
           onSubmitClaim={onSubmitClaim}
           submittingClaim={submittingClaim}
           savedPostsState={savedPostsState}
+          onUserProfileClick={onUserProfileClick}
         />
       )
     case 'report-items':
@@ -137,6 +148,7 @@ function DashboardContent({
           onDeleteMessage={onDeleteMessage}
           onDeleteConversation={onDeleteConversation}
           onMarkClaimReturned={onMarkClaimReturned}
+          onUserProfileClick={onUserProfileClick}
           savingClaimId={savingClaimId}
           onTypingStateChange={onTypingStateChange}
           sendingMessage={sendingMessage}
@@ -144,12 +156,24 @@ function DashboardContent({
           messageError={messageError}
           onlineUserIds={onlineUserIds}
           typingParticipantId={typingParticipantId}
+          typingConversationId={typingConversationId}
         />
       )
     case 'contact':
       return <ContactPage user={user} token={token} />
     case 'profile':
       return <ProfilePage user={user} token={token} onUserUpdate={onUserUpdate} />
+    case 'public-profile':
+      return (
+        <PublicProfilePage
+          user={user}
+          token={token}
+          posts={communityPosts}
+          approvedItems={approvedItems}
+          myItems={myItems}
+          onStartMessage={onStartMessage}
+        />
+      )
     default:
       return (
         <CommunityPage
@@ -158,18 +182,37 @@ function DashboardContent({
           categories={categories}
           posts={communityPosts}
           myPosts={myItems}
+          myClaims={myClaims}
           onCreatePost={onItemSubmitted}
           onNavigate={onNavigate}
           notifications={notifications}
+          onNotificationClick={onNotificationClick}
           savedPostsState={savedPostsState}
           onUpdatePost={onUpdatePost}
+          onStartMessage={onStartMessage}
+          onUserProfileClick={onUserProfileClick}
         />
       )
   }
 }
 
-const normalizePresenceIds = (ids = []) =>
-  Array.from(new Set(ids.map((id) => Number(id)).filter(Number.isFinite)))
+function formatRelativeTime(dateValue) {
+  if (!dateValue) return 'Just now'
+
+  const diffMs = Date.now() - new Date(dateValue).getTime()
+  const diffSeconds = Math.max(0, Math.floor(diffMs / 1000))
+  const diffMinutes = Math.floor(diffSeconds / 60)
+  const diffHours = Math.floor(diffMinutes / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffSeconds < 45) return 'Just now'
+  if (diffMinutes < 60) return `${diffMinutes} min ago`
+  if (diffHours < 24) return `${diffHours} hr ago`
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+
+  return formatDate(dateValue, { month: 'short', day: 'numeric' })
+}
 
 function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const [profileOpen, setProfileOpen] = useState(false)
@@ -190,14 +233,18 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const [submittingClaim, setSubmittingClaim] = useState(false)
   const [deletingPostId, setDeletingPostId] = useState(null)
   const [savingClaimId, setSavingClaimId] = useState(null)
+  const [notificationRatingClaim, setNotificationRatingClaim] = useState(null)
   const [messageError, setMessageError] = useState('')
   const [onlineUserIds, setOnlineUserIds] = useState([])
   const [typingParticipantId, setTypingParticipantId] = useState(null)
+  const [typingConversationId, setTypingConversationId] = useState(null)
   const profileRef = useRef(null)
   const notificationRef = useRef(null)
   const activeConversationRef = useRef(null)
+  const activeConversationChannelRef = useRef(null)
   const openConversationRef = useRef(null)
   const typingStateRef = useRef({ receiverId: null, isTyping: false })
+  const typingHideTimerRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -212,6 +259,16 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     activeConversationRef.current = activeConversation
   }, [activeConversation])
 
+  const clearTypingIndicator = useCallback(() => {
+    if (typingHideTimerRef.current) {
+      window.clearTimeout(typingHideTimerRef.current)
+      typingHideTimerRef.current = null
+    }
+
+    setTypingParticipantId(null)
+    setTypingConversationId(null)
+  }, [])
+
   const activePage = useMemo(() => {
     switch (location.pathname) {
       case '/lost-items':
@@ -225,7 +282,12 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       case '/profile':
         return 'profile'
       case '/community':
+        return 'community'
       default:
+        if (location.pathname.startsWith('/users/')) {
+          return 'public-profile'
+        }
+
         return 'community'
     }
   }, [location.pathname])
@@ -289,9 +351,10 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           : [],
       )
       setApprovedItems(
-        lostResult.status === 'fulfilled' && foundResult.status === 'fulfilled'
-          ? [...(lostResult.value.posts ?? []), ...(foundResult.value.posts ?? [])]
-          : [],
+        [
+          ...(lostResult.status === 'fulfilled' ? (lostResult.value.posts ?? []) : []),
+          ...(foundResult.status === 'fulfilled' ? (foundResult.value.posts ?? []) : []),
+        ],
       )
       setMessageConversations(
         messagesResult.status === 'fulfilled'
@@ -424,7 +487,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
             : notification
         )),
       )
-      setTypingParticipantId(null)
+      clearTypingIndicator()
     } catch (error) {
       setMessageError(error.payload?.message ?? 'Failed to load the conversation.')
     } finally {
@@ -467,7 +530,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       })
 
       setMessageConversations((current) => {
-        const participant = payload.data.receiver?.id === user.id
+        const participant = normalizeRealtimeUserId(payload.data.receiver?.id) === normalizeRealtimeUserId(user.id)
           ? payload.data.sender
           : payload.data.receiver
 
@@ -551,24 +614,37 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   }
 
   const handleTypingStateChange = (receiverId, isTyping) => {
-    if (!receiverId) return
+    const normalizedReceiverId = normalizeRealtimeUserId(receiverId)
+    const currentUserId = normalizeRealtimeUserId(user.id)
+    const currentConversation = activeConversationRef.current
+    const channel = activeConversationChannelRef.current
+
+    if (!normalizedReceiverId || !currentUserId || !currentConversation?.id || !channel?.whisper) return
 
     if (
-      typingStateRef.current.receiverId === receiverId
+      typingStateRef.current.receiverId === normalizedReceiverId
       && typingStateRef.current.isTyping === isTyping
     ) {
       return
     }
 
-    typingStateRef.current = { receiverId, isTyping }
+    typingStateRef.current = { receiverId: normalizedReceiverId, isTyping }
 
-    void apiRequest(isTyping ? '/messages/typing' : '/messages/typing/stop', {
-      method: 'POST',
-      token,
-      body: {
-        receiver_id: receiverId,
-      },
-    }).catch(() => {})
+    try {
+      channel.whisper('typing', {
+        userId: currentUserId,
+        receiverId: normalizedReceiverId,
+        conversationId: currentConversation.id,
+        typing: Boolean(isTyping),
+        sentAt: new Date().toISOString(),
+      })
+      logRealtimeDebug('[Conversation] whisper typing:', {
+        conversationId: currentConversation.id,
+        typing: Boolean(isTyping),
+      })
+    } catch (error) {
+      logRealtimeDebug('[Conversation] whisper typing failed:', error)
+    }
   }
 
   const handleItemSubmitted = (payload) => {
@@ -644,8 +720,20 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       })
 
       setMyClaims((current) => [payload.claim, ...current.filter((claim) => claim.id !== payload.claim.id)])
-      if (payload.notification) {
-        setNotificationItems((current) => [payload.notification, ...current].slice(0, 20))
+      const returnedNotifications = [
+        payload.notification,
+        ...(payload.rating_notifications ?? []),
+      ].filter(Boolean)
+
+      if (returnedNotifications.length > 0) {
+        setNotificationItems((current) => {
+          const merged = [...returnedNotifications, ...current]
+          const unique = merged.filter((notification, index, list) => (
+            list.findIndex((item) => item.id === notification.id) === index
+          ))
+
+          return unique.slice(0, 20)
+        })
       }
       return payload
     } finally {
@@ -690,24 +778,75 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
   }
 
-  const handleMarkClaimReturned = async (claim) => {
-    if (!claim?.id) return
+  const markClaimRatingSubmitted = (claimId) => {
+    if (!claimId) return
 
-    setSavingClaimId(claim.id)
+    const markClaim = (claim) => (
+      claim?.id === claimId
+        ? { ...claim, rating_submitted: true, can_rate: false }
+        : claim
+    )
+
+    setMyClaims((current) => current.map(markClaim))
+    setMyItems((current) =>
+      current.map((item) => ({
+        ...item,
+        claims: Array.isArray(item.claims) ? item.claims.map(markClaim) : item.claims,
+      })),
+    )
+  }
+
+  const handleReturnRatingSuccess = (payload) => {
+    const claimId = payload?.rating?.claim_id ?? notificationRatingClaim?.id
+
+    markClaimRatingSubmitted(claimId)
+
+    if (payload?.notification) {
+      setNotificationItems((current) => {
+        const merged = [payload.notification, ...current]
+        return merged
+          .filter((notification, index, list) => (
+            list.findIndex((item) => item.id === notification.id) === index
+          ))
+          .slice(0, 20)
+      })
+    }
+
+    setNotificationRatingClaim(null)
+  }
+
+  const handleMarkClaimReturned = async (claim) => {
+    const returnPost = claim?.community_post
+    const participantId = claim?.participant?.id ?? claim?.user?.id ?? claim?.participant_user_id
+    const saveKey = claim?.id ?? (returnPost?.id && participantId ? `post-${returnPost.id}-${participantId}` : null)
+
+    if (!saveKey) return
+
+    setSavingClaimId(saveKey)
 
     try {
-      const payload = await apiRequest(`/claims/${claim.id}/return`, {
-        method: 'PATCH',
-        token,
-      })
+      const payload = claim?.id && !String(claim.id).startsWith('post-')
+        ? await apiRequest(`/claims/${claim.id}/return`, {
+            method: 'PATCH',
+            token,
+          })
+        : await apiRequest(`/community-posts/${returnPost.id}/return`, {
+            method: 'PATCH',
+            token,
+            body: {
+              participant_user_id: participantId,
+            },
+          })
       const updatedClaim = payload.claim
       const returnedPost = updatedClaim?.community_post
 
       if (updatedClaim?.id) {
         setMyClaims((current) =>
-          current.map((currentClaim) => (
-            currentClaim.id === updatedClaim.id ? updatedClaim : currentClaim
-          )),
+          current.some((currentClaim) => currentClaim.id === updatedClaim.id)
+            ? current.map((currentClaim) => (
+                currentClaim.id === updatedClaim.id ? updatedClaim : currentClaim
+              ))
+            : current,
         )
       }
 
@@ -717,9 +856,11 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
             if (item.id !== returnedPost.id) return item
 
             const claims = Array.isArray(item.claims)
-              ? item.claims.map((claim) => (
-                  claim.id === updatedClaim.id ? updatedClaim : claim
-                ))
+              ? item.claims.some((claim) => claim.id === updatedClaim.id)
+                ? item.claims.map((claim) => (
+                    claim.id === updatedClaim.id ? updatedClaim : claim
+                  ))
+                : [updatedClaim, ...item.claims]
               : []
 
             return {
@@ -733,10 +874,41 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         setApprovedItems((current) => current.filter((item) => item.id !== returnedPost.id))
         setMyItems(replaceReturnedPost)
         savedPostsState.replaceSavedPost?.(returnedPost)
+        setSelectedMessageItem((current) => (
+          current?.id === returnedPost.id ? { ...current, ...returnedPost } : current
+        ))
+        setActiveConversation((current) => (
+          current?.related_item?.id === returnedPost.id
+            ? { ...current, related_item: { ...current.related_item, ...returnedPost } }
+            : current
+        ))
+        setMessageConversations((current) =>
+          current.map((conversation) => (
+            conversation.related_item?.id === returnedPost.id
+              ? { ...conversation, related_item: { ...conversation.related_item, ...returnedPost } }
+              : conversation
+          )),
+        )
       }
 
-      if (payload.notification) {
-        setNotificationItems((current) => [payload.notification, ...current].slice(0, 20))
+      const returnedNotifications = [
+        payload.notification,
+        ...(payload.rating_notifications ?? []),
+      ].filter(Boolean)
+
+      if (returnedNotifications.length > 0) {
+        setNotificationItems((current) => {
+          const merged = [...returnedNotifications, ...current]
+          const unique = merged.filter((notification, index, list) => (
+            list.findIndex((item) => item.id === notification.id) === index
+          ))
+
+          return unique.slice(0, 20)
+        })
+      }
+
+      if (updatedClaim?.id && (updatedClaim.can_rate ?? true) && !updatedClaim.rating_submitted) {
+        setNotificationRatingClaim(updatedClaim)
       }
 
       return payload
@@ -745,30 +917,99 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
     }
   }
 
+  const markNotificationRead = async (notificationId) => {
+    if (!notificationId) return
+
+    setNotificationItems((current) =>
+      current.map((notification) => (
+        notification.id === notificationId && !notification.read
+          ? { ...notification, read: true, read_at: new Date().toISOString() }
+          : notification
+      )),
+    )
+
+    try {
+      await apiRequest(`/notifications/${notificationId}/read`, {
+        method: 'PATCH',
+        token,
+      })
+    } catch {
+      // Keep the optimistic state so the user is not bounced by a transient network issue.
+    }
+  }
+
   const handleNotificationClick = (notification) => {
     closeMenus()
+    void markNotificationRead(notification.id)
+
+    if (notification.type === 'message_received') {
+      const senderId = notification.data?.sender_id
+      const postId = notification.data?.community_post_id
+      const itemId = notification.data?.item_id
+      const params = new URLSearchParams()
+      if (senderId) params.set('user', senderId)
+      if (postId) params.set('community_post_id', postId)
+      if (itemId) params.set('item_id', itemId)
+      navigate(`/messages${params.toString() ? `?${params.toString()}` : ''}`)
+      return
+    }
 
     if (notification.type === 'claim_received') {
-      navigate('/community?section=my-found')
+      navigate(`/community?section=${notification.data?.section ?? 'my-found'}`)
       return
     }
 
     if (notification.type?.startsWith('claim_')) {
-      navigate('/community?section=my-claims')
+      navigate('/community?section=my-returns')
       return
     }
 
-    navigate('/community')
+    if (notification.type === 'rating_available' || notification.data?.action === 'rating_available') {
+      if (notification.data?.claim_id) {
+        setNotificationRatingClaim({ id: notification.data.claim_id })
+      }
+      return
+    }
+
+    if (notification.type === 'rating_received' || notification.data?.action === 'rating_received') {
+      navigate('/profile')
+      return
+    }
+
+    if (notification.type === 'item_returned' || notification.type === 'return_completed') {
+      navigate(`/community?section=${notification.data?.section ?? 'my-returns'}`)
+      return
+    }
+
+    if (notification.type === 'post_approved' || notification.type === 'post_rejected') {
+      navigate(`/community?section=${notification.data?.section ?? 'my-lost'}`)
+      return
+    }
+
+    navigate(notification.data?.section ? `/community?section=${notification.data.section}` : '/community')
   }
 
   const menuItems = dashboardMenuItems
-  const dropdownItems = profileDropdownItems
+  const dropdownItems = useMemo(
+    () =>
+      profileDropdownItems.map((item) => (
+        item.key === 'my-profile'
+          ? { ...item, path: `/users/${user.id}` }
+          : item
+      )),
+    [user.id],
+  )
   const roleLabel = 'Community Member'
   const notifications = useMemo(() => {
     return notificationItems.map((notification) => ({
       ...notification,
+      rawTime: notification.time,
       time: notification.time
         ? formatDate(notification.time, { month: 'short', day: 'numeric' })
+        : 'Today',
+      relativeTime: formatRelativeTime(notification.time),
+      absoluteTime: notification.time
+        ? formatDate(notification.time, { month: 'short', day: 'numeric', year: 'numeric' })
         : 'Today',
     }))
   }, [notificationItems])
@@ -803,6 +1044,12 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
   const handleStartMessage = (targetUser, relatedPost = null) => {
     if (!targetUser?.id || Number(targetUser.id) === Number(user.id)) return
     void handleOpenConversation(targetUser, relatedPost)
+  }
+
+  const handleUserProfileClick = (profileUser) => {
+    if (!profileUser?.id) return
+    closeMenus()
+    navigate(`/users/${profileUser.id}`)
   }
 
   useEffect(() => {
@@ -906,7 +1153,10 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         return
       }
 
-      const participant = nextMessage.sender?.id === user.id
+      const currentUserId = normalizeRealtimeUserId(user.id)
+      const senderId = normalizeRealtimeUserId(nextMessage.sender?.id)
+      const receiverId = normalizeRealtimeUserId(nextMessage.receiver?.id)
+      const participant = senderId === currentUserId
         ? nextMessage.receiver
         : nextMessage.sender
       const nextConversationId = getConversationId(
@@ -921,7 +1171,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
 
       setMessageConversations((current) => {
         const existing = current.find((conversation) => conversation.id === nextConversationId)
-        const unreadCount = nextMessage.receiver?.id === user.id && activeConversationRef.current?.id !== nextConversationId
+        const unreadCount = receiverId === currentUserId && activeConversationRef.current?.id !== nextConversationId
           ? (existing?.unread_count ?? 0) + 1
           : 0
 
@@ -949,7 +1199,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
 
           return [...current, nextMessage]
         })
-        setTypingParticipantId(null)
+        clearTypingIndicator()
       }
     })
 
@@ -986,7 +1236,7 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
 
       setMessageConversations((current) =>
         current.map((conversation) => (
-          conversation.participant?.id === payload.reader_id
+          normalizeRealtimeUserId(conversation.participant?.id) === normalizeRealtimeUserId(payload.reader_id)
             ? {
                 ...conversation,
                 unread_count: 0,
@@ -996,67 +1246,138 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
       )
     })
 
+    logRealtimeDebug('[Presence] subscribing...', getPresenceChannelName())
+
     const presenceChannel = echo.join(getPresenceChannelName())
 
+    presenceChannel.subscribed(() => {
+      logRealtimeDebug('[Presence] subscribed')
+    })
+
+    presenceChannel.error((error) => {
+      logRealtimeDebug('[Presence] subscription error:', error)
+    })
+
     presenceChannel.here((members = []) => {
-      setOnlineUserIds(normalizePresenceIds(members.map((member) => member.id)))
+      const ids = normalizePresenceIds(members.map((member) => member.id))
+      logRealtimeDebug('[Presence] members:', ids)
+      setOnlineUserIds(ids)
     })
 
     presenceChannel.joining((member) => {
-      const memberId = Number(member.id)
+      const memberId = normalizeRealtimeUserId(member.id)
+      if (!memberId) return
 
-      if (!Number.isFinite(memberId)) {
-        return
-      }
-
+      logRealtimeDebug('[Presence] joining:', member)
       setOnlineUserIds((current) => normalizePresenceIds([...current, memberId]))
     })
 
     presenceChannel.leaving((member) => {
-      const memberId = Number(member.id)
+      const memberId = normalizeRealtimeUserId(member.id)
+      if (!memberId) return
 
-      if (!Number.isFinite(memberId)) {
-        return
-      }
-
+      logRealtimeDebug('[Presence] leaving:', member)
       setOnlineUserIds((current) => normalizePresenceIds(current).filter((id) => id !== memberId))
+      if (normalizeRealtimeUserId(activeConversationRef.current?.participant?.id) === memberId) {
+        clearTypingIndicator()
+      }
     })
 
     return () => {
       echo.leave(getPresenceChannelName())
       echo.leave(getUserChannelName(user.id))
-      disconnectRealtime()
+      setOnlineUserIds([])
     }
-  }, [token, user?.id])
+  }, [clearTypingIndicator, token, user?.id])
 
   useEffect(() => {
     const echo = getRealtimeClient(token)
     const participantId = activeConversation?.participant?.id
 
     if (!echo || !participantId || !user?.id) {
+      activeConversationChannelRef.current = null
       return undefined
     }
 
     const channelName = getConversationChannelName(user.id, participantId)
     const channel = echo.private(channelName)
+    activeConversationChannelRef.current = channel
+    logRealtimeDebug('[Conversation] subscribing:', channelName)
+
+    channel.subscribed(() => {
+      logRealtimeDebug('[Conversation] subscribed:', channelName)
+    })
+
+    channel.error((error) => {
+      logRealtimeDebug('[Conversation] subscription error:', { channelName, error })
+    })
+
+    const showParticipantTyping = (senderId, conversationId = activeConversation.id) => {
+      if (!senderId || senderId === normalizeRealtimeUserId(user.id)) return
+      if (String(conversationId) !== String(activeConversation.id)) return
+
+      if (typingHideTimerRef.current) {
+        window.clearTimeout(typingHideTimerRef.current)
+      }
+
+      setTypingParticipantId(senderId)
+      setTypingConversationId(activeConversation.id)
+      typingHideTimerRef.current = window.setTimeout(() => {
+        clearTypingIndicator()
+      }, 3000)
+    }
 
     channel.listen('.message.typing', (payload) => {
-      if (payload.sender_id !== user.id) {
-        setTypingParticipantId(payload.sender_id)
-      }
+      const senderId = normalizeRealtimeUserId(payload.sender_id)
+      showParticipantTyping(senderId)
     })
 
     channel.listen('.message.typing.stopped', (payload) => {
-      if (payload.sender_id !== user.id) {
-        setTypingParticipantId((current) => (current === payload.sender_id ? null : current))
+      const senderId = normalizeRealtimeUserId(payload.sender_id)
+      if (senderId && senderId !== normalizeRealtimeUserId(user.id)) {
+        setTypingParticipantId((current) => (current === senderId ? null : current))
+        setTypingConversationId((current) => (current === activeConversation.id ? null : current))
+        if (typingHideTimerRef.current) {
+          window.clearTimeout(typingHideTimerRef.current)
+          typingHideTimerRef.current = null
+        }
+      }
+    })
+
+    channel.listenForWhisper('typing', (payload) => {
+      const senderId = normalizeRealtimeUserId(payload.userId ?? payload.sender_id)
+      const conversationId = payload.conversationId
+
+      logRealtimeDebug('[Conversation] whisper typing received:', payload)
+
+      if (!senderId || senderId === normalizeRealtimeUserId(user.id)) {
+        return
+      }
+
+      if (String(conversationId) !== String(activeConversation.id)) {
+        return
+      }
+
+      if (payload.typing) {
+        showParticipantTyping(senderId, conversationId)
+        return
+      }
+
+      setTypingParticipantId((current) => (current === senderId ? null : current))
+      setTypingConversationId((current) => (current === activeConversation.id ? null : current))
+      if (typingHideTimerRef.current) {
+        window.clearTimeout(typingHideTimerRef.current)
+        typingHideTimerRef.current = null
       }
     })
 
     return () => {
+      activeConversationChannelRef.current = null
       echo.leave(channelName)
-      setTypingParticipantId(null)
+      clearTypingIndicator()
+      typingStateRef.current = { receiverId: null, isTyping: false }
     }
-  }, [activeConversation?.participant?.id, token, user?.id])
+  }, [activeConversation?.id, activeConversation?.participant?.id, clearTypingIndicator, token, user?.id])
 
   return (
     <div className="dashboard-page">
@@ -1077,17 +1398,16 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
         notifications={notifications}
         notificationOpen={notificationOpen}
         onToggleNotifications={() => {
-          setNotificationOpen((current) => {
-            const next = !current
-            if (next && unreadNotifications > 0) {
-              void handleMarkNotificationsRead()
-            }
-            return next
-          })
+          setNotificationOpen((current) => !current)
           setProfileOpen(false)
         }}
         unreadNotifications={unreadNotifications}
         onNotificationClick={handleNotificationClick}
+        onMarkAllNotificationsRead={handleMarkNotificationsRead}
+        onViewAllNotifications={() => {
+          setNotificationOpen(false)
+          navigate('/community?section=notifications')
+        }}
       />
       <main className="dashboard-main">
         <DashboardContent
@@ -1122,14 +1442,23 @@ function DashboardLayout({ user, token, onLogout, onUserUpdate }) {
           loadingConversation={loadingConversation}
           messageError={messageError}
           onStartMessage={handleStartMessage}
+          onUserProfileClick={handleUserProfileClick}
           onlineUserIds={onlineUserIds}
           typingParticipantId={typingParticipantId}
+          typingConversationId={typingConversationId}
           savedPostsState={savedPostsState}
           onDeletePost={handleDeletePost}
           onUpdatePost={handlePostUpdated}
           deletingPostId={deletingPostId}
         />
       </main>
+      <RatingModal
+        open={Boolean(notificationRatingClaim)}
+        claim={notificationRatingClaim}
+        token={token}
+        onClose={() => setNotificationRatingClaim(null)}
+        onSuccess={handleReturnRatingSuccess}
+      />
       <Footer />
     </div>
   )

@@ -18,7 +18,7 @@ class AdminController extends Controller
     public function overview(): JsonResponse
     {
         $pendingPosts = $this->safe(fn () => CommunityPost::query()
-            ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+            ->with($this->communityPostRelations())
             ->where('status', 'pending')
             ->latest()
             ->limit(8)
@@ -37,7 +37,7 @@ class AdminController extends Controller
             ->all(), []);
 
         $recentPosts = $this->safe(fn () => CommunityPost::query()
-            ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+            ->with($this->communityPostRelations())
             ->latest()
             ->limit(6)
             ->get()
@@ -75,10 +75,10 @@ class AdminController extends Controller
                 'pending_posts' => $this->safe(fn () => CommunityPost::query()->where('status', 'pending')->count(), 0),
                 'approved_posts' => $this->safe(fn () => CommunityPost::query()->where('status', 'approved')->count(), 0),
                 'rejected_posts' => $this->safe(fn () => CommunityPost::query()->where('status', 'rejected')->count(), 0),
-                'lost_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'lost')->count(), 0),
-                'found_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'found')->count(), 0),
-                'claims' => $this->safe(fn () => Claim::query()->count(), 0),
-                'active_claims' => $this->safe(fn () => Claim::query()->where('status', 'pending')->count(), 0),
+                'lost_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'lost')->where('status', 'approved')->count(), 0),
+                'found_items' => $this->safe(fn () => CommunityPost::query()->where('post_type', 'found')->where('status', 'approved')->count(), 0),
+                'claims' => $this->safe(fn () => Claim::query()->whereIn('status', ['pending', 'approved', 'returned'])->count(), 0),
+                'active_claims' => $this->safe(fn () => Claim::query()->whereIn('status', ['pending', 'approved'])->count(), 0),
                 'completed_returns' => $this->safe(fn () => Claim::query()->where('status', 'returned')->count(), 0),
                 'contact_messages' => $this->safe(fn () => ContactMessage::query()->count(), 0),
                 'new_messages' => $this->safe(fn () => ContactMessage::query()->whereIn('status', ['new', 'pending'])->count(), 0),
@@ -99,6 +99,13 @@ class AdminController extends Controller
     public function users(): JsonResponse
     {
         $users = User::query()
+            ->where('role', 'user')
+            ->withCount([
+                'communityPosts as lost_posts_count' => fn ($query) => $query->where('post_type', 'lost'),
+                'communityPosts as found_posts_count' => fn ($query) => $query->where('post_type', 'found'),
+                'claims as claims_count',
+                'claims as completed_returns_count' => fn ($query) => $query->where('status', 'returned'),
+            ])
             ->latest()
             ->get()
             ->map(fn (User $user) => $this->transformUser($user));
@@ -110,19 +117,63 @@ class AdminController extends Controller
 
     public function updateUser(Request $request, User $user): JsonResponse
     {
+        abort_unless($user->role === 'user', 404);
+
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'phone' => ['nullable', 'string', 'max:50'],
-            'role' => ['sometimes', 'in:admin,user'],
-            'status' => ['sometimes', 'in:active,disabled'],
+            'status' => ['sometimes', 'in:active,banned'],
+            'ban_reason' => ['nullable', 'string'],
         ]);
+
+        if (($validated['status'] ?? null) === 'banned') {
+            $validated['banned_at'] = now();
+        }
+
+        if (($validated['status'] ?? null) === 'active') {
+            $validated['banned_at'] = null;
+            $validated['ban_reason'] = null;
+        }
 
         $user->update($validated);
 
+        if (($validated['status'] ?? null) === 'banned') {
+            $user->tokens()->delete();
+
+            NotificationService::create(
+                $user->id,
+                'account_banned',
+                'Account suspended',
+                'Your account has been suspended by FindIt Admin.'
+                    .($user->ban_reason ? ' Reason: '.$user->ban_reason : ''),
+                [
+                    'user_id' => $user->id,
+                    'reason' => $user->ban_reason,
+                ],
+            );
+        }
+
+        if (($validated['status'] ?? null) === 'active') {
+            NotificationService::create(
+                $user->id,
+                'account_activated',
+                'Account reactivated',
+                'Your FindIt account has been reactivated.',
+                [
+                    'user_id' => $user->id,
+                ],
+            );
+        }
+
         return response()->json([
             'message' => 'User updated successfully.',
-            'user' => $this->transformUser($user->fresh()),
+            'user' => $this->transformUser($user->fresh()->loadCount([
+                'communityPosts as lost_posts_count' => fn ($query) => $query->where('post_type', 'lost'),
+                'communityPosts as found_posts_count' => fn ($query) => $query->where('post_type', 'found'),
+                'claims as claims_count',
+                'claims as completed_returns_count' => fn ($query) => $query->where('status', 'returned'),
+            ])),
         ]);
     }
 
@@ -143,7 +194,7 @@ class AdminController extends Controller
     {
         return response()->json([
             'posts' => CommunityPost::query()
-                ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+                ->with($this->communityPostRelations())
                 ->latest()
                 ->get()
                 ->map(fn (CommunityPost $post) => $this->transformCommunityPost($post)),
@@ -154,7 +205,7 @@ class AdminController extends Controller
     {
         return response()->json([
             'posts' => CommunityPost::query()
-                ->with(['user:id,name,email,profile_image', 'category:id,name', 'approvedBy:id,name'])
+                ->with($this->communityPostRelations())
                 ->where('status', 'pending')
                 ->latest()
                 ->get()
@@ -197,7 +248,6 @@ class AdminController extends Controller
         $claim->save();
 
         if ($claim->communityPost) {
-            $claim->communityPost->status = 'claimed';
             $claim->communityPost->returned_at = null;
             $claim->communityPost->save();
 
@@ -276,6 +326,10 @@ class AdminController extends Controller
         $claim->reviewed_at = now();
         $claim->returned_at = null;
         $claim->save();
+
+        if ($claim->community_post_id) {
+            $this->restoreApprovedPostIfNoActiveClaims($claim->community_post_id);
+        }
 
         NotificationService::create(
             $claim->user_id,
@@ -380,10 +434,14 @@ class AdminController extends Controller
             'admin_note' => ['nullable', 'string'],
         ]);
 
-        $communityPost->status = $validated['status'];
+        // Claims are tracked on the claim record. A post remains public while approved
+        // until the explicit return workflow marks the post as returned.
+        $nextStatus = $validated['status'] === 'claimed' ? 'approved' : $validated['status'];
+
+        $communityPost->status = $nextStatus;
         $communityPost->admin_note = $validated['admin_note'] ?? null;
 
-        if ($validated['status'] === 'approved' || $validated['status'] === 'claimed') {
+        if ($nextStatus === 'approved') {
             $communityPost->status = 'approved';
             $communityPost->approved_by = $request->user()->id;
             $communityPost->approved_at = now();
@@ -391,11 +449,7 @@ class AdminController extends Controller
             $communityPost->returned_at = null;
         }
 
-        if ($validated['status'] === 'claimed') {
-            $communityPost->status = 'claimed';
-        }
-
-        if ($validated['status'] === 'rejected') {
+        if ($nextStatus === 'rejected') {
             $communityPost->status = 'rejected';
             $communityPost->rejected_at = now();
             $communityPost->approved_by = null;
@@ -403,12 +457,12 @@ class AdminController extends Controller
             $communityPost->returned_at = null;
         }
 
-        if ($validated['status'] === 'returned') {
+        if ($nextStatus === 'returned') {
             $communityPost->status = 'returned';
             $communityPost->returned_at = now();
         }
 
-        if ($validated['status'] === 'pending') {
+        if ($nextStatus === 'pending') {
             $communityPost->status = 'pending';
             $communityPost->approved_by = null;
             $communityPost->approved_at = null;
@@ -424,14 +478,20 @@ class AdminController extends Controller
                 'user:id,name,email,profile_image',
                 'category:id,name',
                 'approvedBy:id,name',
+                'claims.user:id,name,email,profile_image',
+                'claims.reviewedBy:id,name',
             ])),
         ]);
     }
 
     public function approveCommunityPost(Request $request, CommunityPost $communityPost): JsonResponse
     {
+        $validated = $request->validate([
+            'admin_note' => ['nullable', 'string'],
+        ]);
+
         $communityPost->status = 'approved';
-        $communityPost->admin_note = $request->input('admin_note');
+        $communityPost->admin_note = $validated['admin_note'] ?? null;
         $communityPost->approved_by = $request->user()->id;
         $communityPost->approved_at = now();
         $communityPost->rejected_at = null;
@@ -441,8 +501,9 @@ class AdminController extends Controller
         NotificationService::create(
             $communityPost->user_id,
             'post_approved',
-            'Your post was approved',
-            ($communityPost->title ?: ucfirst($communityPost->post_type).' post').' is now visible.',
+            'Post approved',
+            'Your '.ucfirst($communityPost->post_type).' item "'.($communityPost->title ?: 'Post').'" has been approved and is now visible.'
+                .($communityPost->admin_note ? ' Admin feedback: '.$communityPost->admin_note : ''),
             [
                 'post_id' => $communityPost->id,
                 'post_type' => $communityPost->post_type,
@@ -453,6 +514,8 @@ class AdminController extends Controller
             'user:id,name,email,profile_image',
             'category:id,name',
             'approvedBy:id,name',
+            'claims.user:id,name,email,profile_image',
+            'claims.reviewedBy:id,name',
         ]));
 
         WebhookDispatcher::dispatch('post_approved', [
@@ -468,7 +531,7 @@ class AdminController extends Controller
     public function rejectCommunityPost(Request $request, CommunityPost $communityPost): JsonResponse
     {
         $validated = $request->validate([
-            'admin_note' => ['nullable', 'string'],
+            'admin_note' => ['required', 'string', 'min:3'],
         ]);
 
         $communityPost->status = 'rejected';
@@ -482,8 +545,9 @@ class AdminController extends Controller
         NotificationService::create(
             $communityPost->user_id,
             'post_rejected',
-            'Your post was rejected',
-            ($communityPost->title ?: ucfirst($communityPost->post_type).' post').' was rejected by admin.',
+            'Post rejected',
+            'Your post "'.($communityPost->title ?: ucfirst($communityPost->post_type).' post').'" was rejected.'
+                .($communityPost->admin_note ? ' Reason: '.$communityPost->admin_note : ''),
             [
                 'post_id' => $communityPost->id,
                 'post_type' => $communityPost->post_type,
@@ -494,6 +558,8 @@ class AdminController extends Controller
             'user:id,name,email,profile_image',
             'category:id,name',
             'approvedBy:id,name',
+            'claims.user:id,name,email,profile_image',
+            'claims.reviewedBy:id,name',
         ]));
 
         WebhookDispatcher::dispatch('post_rejected', [
@@ -580,10 +646,16 @@ class AdminController extends Controller
             'phone' => $user->phone,
             'role' => $user->role,
             'status' => $user->status,
+            'banned_at' => optional($user->banned_at)?->toISOString(),
+            'ban_reason' => $user->ban_reason,
             'created_at' => optional($user->created_at)?->toISOString(),
             'profile_image_url' => $user->profile_image
                 ? asset('storage/'.$user->profile_image)
                 : null,
+            'lost_posts_count' => (int) ($user->lost_posts_count ?? 0),
+            'found_posts_count' => (int) ($user->found_posts_count ?? 0),
+            'claims_count' => (int) ($user->claims_count ?? 0),
+            'completed_returns_count' => (int) ($user->completed_returns_count ?? 0),
         ];
     }
 
@@ -748,6 +820,34 @@ class AdminController extends Controller
                 'id' => $post->approvedBy->id,
                 'name' => $post->approvedBy->name,
             ] : null,
+            'claims' => $post->relationLoaded('claims')
+                ? $post->claims
+                    ->sortByDesc('created_at')
+                    ->values()
+                    ->map(fn (Claim $claim) => [
+                        'id' => $claim->id,
+                        'status' => $claim->status,
+                        'proof_description' => $claim->proof_description,
+                        'contact_phone' => $claim->contact_phone,
+                        'admin_note' => $claim->admin_note,
+                        'reviewed_at' => optional($claim->reviewed_at)?->toISOString(),
+                        'returned_at' => optional($claim->returned_at)?->toISOString(),
+                        'created_at' => optional($claim->created_at)?->toISOString(),
+                        'user' => $claim->user ? [
+                            'id' => $claim->user->id,
+                            'name' => $claim->user->name,
+                            'email' => $claim->user->email,
+                            'profile_image_url' => $claim->user->profile_image
+                                ? asset('storage/'.$claim->user->profile_image)
+                                : null,
+                        ] : null,
+                        'reviewed_by' => $claim->reviewedBy ? [
+                            'id' => $claim->reviewedBy->id,
+                            'name' => $claim->reviewedBy->name,
+                        ] : null,
+                    ])
+                    ->all()
+                : [],
         ];
     }
 
@@ -819,5 +919,29 @@ class AdminController extends Controller
         } catch (Throwable) {
             return $fallback;
         }
+    }
+
+    protected function communityPostRelations(): array
+    {
+        return [
+            'user:id,name,email,profile_image',
+            'category:id,name',
+            'approvedBy:id,name',
+            'claims.user:id,name,email,profile_image',
+            'claims.reviewedBy:id,name',
+        ];
+    }
+
+    protected function restoreApprovedPostIfNoActiveClaims(int $communityPostId): void
+    {
+        CommunityPost::query()
+            ->where('id', $communityPostId)
+            ->where('status', 'claimed')
+            ->whereNull('returned_at')
+            ->update([
+                'status' => 'approved',
+                'returned_at' => null,
+                'updated_at' => now(),
+            ]);
     }
 }

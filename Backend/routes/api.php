@@ -10,7 +10,9 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RatingController;
 use App\Http\Controllers\SavedPostController;
+use App\Http\Controllers\SupportConversationController;
 use App\Http\Controllers\UserDashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,11 +25,15 @@ Route::get('/health', function () {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active.account'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/dashboard/overview', [UserDashboardController::class, 'overview']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/contact-messages', [ContactMessageController::class, 'store']);
+    Route::get('/support/conversation', [SupportConversationController::class, 'show']);
+    Route::post('/support/messages', [SupportConversationController::class, 'store']);
+    Route::post('/support/typing', [SupportConversationController::class, 'typing']);
+    Route::post('/support/typing/stop', [SupportConversationController::class, 'stopTyping']);
     Route::get('/categories', [ItemController::class, 'categories']);
     Route::get('/items', [ItemController::class, 'index']);
     Route::get('/my-items', [ItemController::class, 'myItems']);
@@ -36,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/community-posts', [CommunityPostController::class, 'store']);
     Route::get('/community-posts/{communityPost}', [CommunityPostController::class, 'show']);
     Route::match(['patch', 'post'], '/community-posts/{communityPost}', [CommunityPostController::class, 'update']);
+    Route::match(['patch', 'put'], '/community-posts/{communityPost}/return', [ClaimController::class, 'returnCommunityPost']);
     Route::delete('/community-posts/{communityPost}', [CommunityPostController::class, 'destroy']);
     Route::get('/my-posts', [CommunityPostController::class, 'myPosts']);
     Route::get('/lost-items', [CommunityPostController::class, 'lostItems']);
@@ -60,9 +67,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/notifications/read', [NotificationController::class, 'markAllRead']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::patch('/profile', [ProfileController::class, 'update']);
+    Route::get('/users/{user}/public-profile', [ProfileController::class, 'publicProfile']);
+    Route::get('/users/{user}/ratings', [RatingController::class, 'publicReviews']);
+    Route::patch('/profile/privacy', [ProfileController::class, 'updatePrivacy']);
     Route::post('/profile/photo', [ProfileController::class, 'updatePhoto']);
     Route::delete('/profile/photo', [ProfileController::class, 'removePhoto']);
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword']);
+    Route::get('/ratings/pending', [RatingController::class, 'pending']);
+    Route::get('/ratings/eligibility', [RatingController::class, 'eligibility']);
+    Route::post('/ratings', [RatingController::class, 'store']);
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/overview', [AdminController::class, 'overview']);
@@ -78,6 +91,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/community-posts/{communityPost}/reject', [AdminController::class, 'rejectCommunityPost']);
         Route::get('/contact-messages', [AdminController::class, 'contactMessages']);
         Route::patch('/contact-messages/{contactMessage}', [AdminController::class, 'updateContactMessage']);
+        Route::get('/support-conversations', [SupportConversationController::class, 'adminIndex']);
+        Route::post('/support-conversations/users/{user}/messages', [SupportConversationController::class, 'adminStoreForUser']);
+        Route::get('/support-conversations/{supportConversation}', [SupportConversationController::class, 'adminShow']);
+        Route::post('/support-conversations/{supportConversation}/messages', [SupportConversationController::class, 'adminStore']);
+        Route::patch('/support-conversations/{supportConversation}/resolve', [SupportConversationController::class, 'adminResolve']);
+        Route::post('/support-conversations/{supportConversation}/typing', [SupportConversationController::class, 'adminTyping']);
+        Route::post('/support-conversations/{supportConversation}/typing/stop', [SupportConversationController::class, 'adminStopTyping']);
         Route::get('/webhooks', [AdminWebhookController::class, 'index']);
         Route::post('/webhooks', [AdminWebhookController::class, 'store']);
         Route::patch('/webhooks/{webhook}', [AdminWebhookController::class, 'update']);

@@ -1,157 +1,283 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DashboardPageShell from '../components/DashboardPageShell'
 import Icon from '../components/Icon'
 import { apiRequest } from '../services/api'
+import {
+  getConversationChannelName,
+  getPresenceChannelName,
+  getRealtimeClient,
+  normalizePresenceIds,
+  normalizeRealtimeUserId,
+} from '../services/realtime'
+import { formatDate } from '../utils/formatDate'
 
-function ContactForm({ user, token }) {
-  const [values, setValues] = useState({
-    name: user?.name ?? '',
-    email: user?.email ?? '',
-    subject: '',
-    message: '',
-  })
-  const [errors, setErrors] = useState({})
-  const [submitting, setSubmitting] = useState(false)
-  const [success, setSuccess] = useState('')
-
-  const handleChange = (event) => {
-    const { name, value } = event.target
-    setValues((current) => ({ ...current, [name]: value }))
-    setErrors((current) => ({ ...current, [name]: '' }))
-    setSuccess('')
-  }
-
-  const validate = () => {
-    const nextErrors = {}
-
-    if (!values.name.trim()) nextErrors.name = 'Name is required.'
-    if (!values.email.trim()) {
-      nextErrors.email = 'Email is required.'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
-      nextErrors.email = 'Enter a valid email address.'
-    }
-    if (!values.subject.trim()) nextErrors.subject = 'Subject is required.'
-    if (!values.message.trim()) nextErrors.message = 'Message is required.'
-
-    setErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setSuccess('')
-
-    if (!validate()) return
-
-    setSubmitting(true)
-
-    try {
-      const payload = await apiRequest('/contact-messages', {
-        method: 'POST',
-        token,
-        body: {
-          name: values.name.trim(),
-          email: values.email.trim(),
-          subject: values.subject.trim(),
-          message: values.message.trim(),
-        },
-      })
-
-      setSuccess(payload.message ?? 'Your support message was submitted successfully.')
-      setValues((current) => ({
-        ...current,
-        subject: '',
-        message: '',
-      }))
-    } catch (error) {
-      setErrors({
-        form: error.payload?.message ?? 'Failed to submit your support message.',
-      })
-    } finally {
-      setSubmitting(false)
-    }
-  }
+function SupportAvatar({ user }) {
+  const initial = user?.name?.charAt(0)?.toUpperCase() || 'A'
 
   return (
-    <section className="contact-form-card">
-      <div className="section-panel-heading">
-        <h2>Send a Support Message</h2>
-        <p>The admin team will receive your request in the Contact Messages inbox.</p>
-      </div>
-
-      <form className="profile-form contact-form" onSubmit={handleSubmit}>
-        <div className="profile-form-grid">
-          <label className="profile-form-field">
-            <span>Name</span>
-            <input name="name" value={values.name} onChange={handleChange} />
-            {errors.name ? <small className="field-error">{errors.name}</small> : null}
-          </label>
-
-          <label className="profile-form-field">
-            <span>Email</span>
-            <input name="email" type="email" value={values.email} onChange={handleChange} />
-            {errors.email ? <small className="field-error">{errors.email}</small> : null}
-          </label>
-
-          <label className="profile-form-field profile-form-field-full">
-            <span>Subject</span>
-            <input name="subject" value={values.subject} onChange={handleChange} />
-            {errors.subject ? <small className="field-error">{errors.subject}</small> : null}
-          </label>
-
-          <label className="profile-form-field profile-form-field-full">
-            <span>Message</span>
-            <textarea
-              name="message"
-              rows="7"
-              value={values.message}
-              onChange={handleChange}
-              placeholder="Describe what happened and include any item, claim, or account details that can help."
-            />
-            {errors.message ? <small className="field-error">{errors.message}</small> : null}
-          </label>
-        </div>
-
-        {errors.form ? <p className="settings-feedback is-error">{errors.form}</p> : null}
-        {success ? <p className="settings-feedback is-success">{success}</p> : null}
-
-        <div className="profile-form-actions">
-          <button type="submit" className="quick-action-button" disabled={submitting}>
-            {submitting ? 'Sending...' : 'Submit Message'}
-          </button>
-        </div>
-      </form>
-    </section>
+    <span className="support-chat-avatar">
+      {user?.profile_image_url ? <img src={user.profile_image_url} alt={user.name} /> : initial}
+    </span>
   )
 }
 
 function ContactPage({ user, token }) {
+  const [conversation, setConversation] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [draft, setDraft] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const [onlineUserIds, setOnlineUserIds] = useState([])
+  const [typingUserId, setTypingUserId] = useState(null)
+  const typingTimeoutRef = useRef(null)
+  const threadEndRef = useRef(null)
+  const channelRef = useRef(null)
+
+  const admin = conversation?.admin
+  const adminId = normalizeRealtimeUserId(admin?.id)
+  const isAdminOnline = useMemo(
+    () => adminId !== null && normalizePresenceIds(onlineUserIds).includes(adminId),
+    [adminId, onlineUserIds],
+  )
+
+  const loadSupportConversation = useCallback(async () => {
+    setError('')
+
+    try {
+      const payload = await apiRequest('/support/conversation', { token })
+      setConversation(payload.conversation ?? null)
+      setMessages(payload.messages ?? [])
+    } catch (requestError) {
+      setError(requestError.payload?.message ?? 'Failed to load support conversation.')
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    void loadSupportConversation()
+  }, [loadSupportConversation])
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages.length, loading])
+
+  useEffect(() => {
+    const echo = getRealtimeClient(token)
+
+    if (!echo || !user?.id) return undefined
+
+    const presenceChannel = echo.join(getPresenceChannelName())
+
+    presenceChannel.here((members = []) => {
+      setOnlineUserIds(normalizePresenceIds(members.map((member) => member.id)))
+    })
+
+    presenceChannel.joining((member) => {
+      const memberId = normalizeRealtimeUserId(member.id)
+      if (!memberId) return
+      setOnlineUserIds((current) => normalizePresenceIds([...current, memberId]))
+    })
+
+    presenceChannel.leaving((member) => {
+      const memberId = normalizeRealtimeUserId(member.id)
+      if (!memberId) return
+      setOnlineUserIds((current) => normalizePresenceIds(current).filter((id) => id !== memberId))
+    })
+
+    return () => {
+      echo.leave(getPresenceChannelName())
+    }
+  }, [token, user?.id])
+
+  useEffect(() => {
+    const echo = getRealtimeClient(token)
+
+    if (!echo || !user?.id || !admin?.id || !conversation?.id) {
+      channelRef.current = null
+      return undefined
+    }
+
+    const channelName = getConversationChannelName(user.id, admin.id)
+    const channel = echo.private(channelName)
+    channelRef.current = channel
+
+    const handleTyping = (payload) => {
+      const senderId = normalizeRealtimeUserId(payload.userId ?? payload.sender_id)
+
+      if (!senderId || senderId === normalizeRealtimeUserId(user.id)) return
+
+      if (payload.typing === false) {
+        setTypingUserId(null)
+        return
+      }
+
+      setTypingUserId(senderId)
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current)
+      }
+      typingTimeoutRef.current = window.setTimeout(() => setTypingUserId(null), 2500)
+    }
+
+    channel.listenForWhisper('typing', handleTyping)
+    channel.listen('.message.typing', handleTyping)
+    channel.listen('.message.typing.stopped', (payload) => {
+      const senderId = normalizeRealtimeUserId(payload.sender_id)
+      if (senderId && senderId !== normalizeRealtimeUserId(user.id)) {
+        setTypingUserId(null)
+      }
+    })
+
+    channel.listen('.message.sent', (payload) => {
+      const nextMessage = payload.message
+
+      if (!nextMessage?.id || Number(nextMessage.support_conversation_id) !== Number(conversation.id)) return
+
+      setMessages((current) => (
+        current.some((message) => message.id === nextMessage.id)
+          ? current
+          : [...current, nextMessage]
+      ))
+      setTypingUserId(null)
+    })
+
+    channel.listen('.message.read', (payload) => {
+      setMessages((current) =>
+        current.map((message) => (
+          payload.message_ids?.includes(message.id)
+            ? { ...message, is_read: true, read_at: payload.read_at ?? new Date().toISOString() }
+            : message
+        )),
+      )
+    })
+
+    return () => {
+      channelRef.current = null
+      echo.leave(channelName)
+    }
+  }, [admin?.id, conversation?.id, token, user?.id])
+
+  const sendTyping = (isTyping) => {
+    if (!channelRef.current?.whisper || !admin?.id) return
+
+    channelRef.current.whisper('typing', {
+      userId: user.id,
+      receiverId: admin.id,
+      conversationId: `support-${conversation?.id ?? 'new'}`,
+      typing: isTyping,
+      sentAt: new Date().toISOString(),
+    })
+  }
+
+  const handleDraftChange = (event) => {
+    setDraft(event.target.value)
+    sendTyping(Boolean(event.target.value.trim()))
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    if (!draft.trim() || sending) return
+
+    setSending(true)
+    setError('')
+
+    try {
+      const payload = await apiRequest('/support/messages', {
+        method: 'POST',
+        token,
+        body: { message: draft.trim() },
+      })
+
+      setConversation(payload.conversation ?? conversation)
+      setMessages((current) => (
+        current.some((message) => message.id === payload.data.id)
+          ? current
+          : [...current, payload.data]
+      ))
+      setDraft('')
+      sendTyping(false)
+    } catch (requestError) {
+      setError(requestError.payload?.message ?? 'Failed to send support message.')
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <DashboardPageShell>
-      <div className="contact-support-layout">
-        <section className="contact-support-card">
+      <div className="support-chat-layout">
+        <section className="support-chat-info-card">
           <span className="contact-support-icon">
             <Icon name="mail" />
           </span>
-          <h2>Community Support</h2>
-          <p>Use this channel for account issues, item reports, claims, and safety concerns.</p>
+          <h2>FindIt Support</h2>
+          <p>Chat with the admin team about account issues, reports, claims, returns, or safety concerns.</p>
           <div className="contact-support-details">
             <div>
-              <strong>Email</strong>
-              <span>support@findit.local</span>
+              <strong>Status</strong>
+              <span>{isAdminOnline ? 'Admin online now' : 'Admin currently offline'}</span>
             </div>
             <div>
-              <strong>Phone</strong>
-              <span>+95 9 123 456 789</span>
-            </div>
-            <div>
-              <strong>Office Hours</strong>
-              <span>Mon to Fri, 9:00 AM to 5:00 PM</span>
+              <strong>Response window</strong>
+              <span>We usually reply during township office hours.</span>
             </div>
           </div>
         </section>
 
-        <ContactForm user={user} token={token} />
+        <section className="support-chat-card">
+          <header className="support-chat-header">
+            <SupportAvatar user={admin} />
+            <div>
+              <h2>{admin?.name ?? 'FindIt Admin'}</h2>
+              <p>{typingUserId ? 'Typing...' : isAdminOnline ? 'Online' : 'Offline'}</p>
+            </div>
+            <span className={`support-status-pill support-status-${conversation?.status ?? 'open'}`}>
+              {conversation?.status === 'resolved' ? 'Resolved' : 'Support Chat'}
+            </span>
+          </header>
+
+          {error ? <p className="settings-feedback is-error support-chat-error">{error}</p> : null}
+
+          <div className="support-chat-thread">
+            {loading ? (
+              <div className="support-empty-state">Loading support conversation...</div>
+            ) : messages.length > 0 ? (
+              messages.map((message) => {
+                const isOwn = normalizeRealtimeUserId(message.sender?.id) === normalizeRealtimeUserId(user.id)
+
+                return (
+                  <article key={message.id} className={`support-message-bubble ${isOwn ? 'is-own' : 'is-admin'}`}>
+                    <p>{message.message}</p>
+                    <span>
+                      {formatDate(message.created_at, { hour: 'numeric', minute: '2-digit' })}
+                      {isOwn ? ` · ${message.is_read ? 'Read' : 'Sent'}` : ''}
+                    </span>
+                  </article>
+                )
+              })
+            ) : (
+              <div className="support-empty-state">
+                <strong>Start a support conversation</strong>
+                <span>Send your first message and an admin can reply here in real time.</span>
+              </div>
+            )}
+            <span ref={threadEndRef} />
+          </div>
+
+          <form className="support-chat-composer" onSubmit={handleSubmit}>
+            <textarea
+              rows="1"
+              value={draft}
+              onChange={handleDraftChange}
+              placeholder="Type your support message..."
+            />
+            <button type="submit" disabled={sending || !draft.trim()}>
+              <Icon name="send" />
+              <span>{sending ? 'Sending' : 'Send'}</span>
+            </button>
+          </form>
+        </section>
       </div>
     </DashboardPageShell>
   )

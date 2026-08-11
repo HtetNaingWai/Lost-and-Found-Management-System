@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\CommunityPost;
+use App\Models\UserRating;
 use App\Models\UserNotification;
 use App\Services\NotificationService;
 use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class CommunityPostController extends Controller
@@ -135,11 +137,13 @@ class CommunityPostController extends Controller
     {
         $user = $request->user();
 
-        if (
-            $communityPost->status === 'rejected'
-            && $user->role !== 'admin'
-            && $communityPost->user_id !== $user->id
-        ) {
+        $isOwner = $communityPost->user_id === $user->id;
+        $isAdmin = $user->role === 'admin';
+        $isClaimant = $communityPost->claims()
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if ($communityPost->status !== 'approved' && !$isAdmin && !$isOwner && !$isClaimant) {
             abort(404);
         }
 
@@ -317,6 +321,7 @@ class CommunityPostController extends Controller
                 'profile_image_url' => $post->user->profile_image
                     ? asset('storage/'.$post->user->profile_image)
                     : null,
+                'rating_summary' => $this->ratingSummary($post->user->id),
             ] : null,
             'category' => $post->category ? [
                 'id' => $post->category->id,
@@ -360,5 +365,27 @@ class CommunityPostController extends Controller
     protected function transformNotification(UserNotification $notification): array
     {
         return NotificationService::transform($notification);
+    }
+
+    protected function ratingSummary(int $userId): array
+    {
+        if (! Schema::hasTable('user_ratings')) {
+            return [
+                'average' => null,
+                'count' => 0,
+            ];
+        }
+
+        $aggregate = UserRating::query()
+            ->where('reviewed_user_id', $userId)
+            ->selectRaw('COUNT(*) as review_count, AVG(rating) as rating_average')
+            ->first();
+
+        $count = (int) ($aggregate->review_count ?? 0);
+
+        return [
+            'average' => $count > 0 ? round((float) $aggregate->rating_average, 1) : null,
+            'count' => $count,
+        ];
     }
 }

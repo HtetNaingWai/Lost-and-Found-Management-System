@@ -5,7 +5,7 @@ import { ACCEPTED_FILE_TYPES, MAX_FILE_SIZE } from '../utils/constants'
 import { apiRequest } from '../services/api'
 
 const defaultPostValues = {
-  postType: 'community',
+  postType: 'lost',
   content: '',
   itemTitle: '',
   categoryId: '',
@@ -13,6 +13,13 @@ const defaultPostValues = {
   latitude: '',
   longitude: '',
   itemDate: '',
+}
+
+function getDefaultPostValues(initialPostType = 'lost') {
+  return {
+    ...defaultPostValues,
+    postType: ['lost', 'found'].includes(initialPostType) ? initialPostType : 'lost',
+  }
 }
 
 const emptyImageState = {
@@ -23,7 +30,8 @@ const emptyImageState = {
 }
 
 function getPostValues(post) {
-  const postType = post?.post_type ?? post?.type ?? 'community'
+  const rawPostType = post?.post_type ?? post?.type ?? 'lost'
+  const postType = ['lost', 'found'].includes(rawPostType) ? rawPostType : 'lost'
 
   return {
     postType,
@@ -46,8 +54,9 @@ function CreatePostModal({
   onUpdatePost,
   mode = 'create',
   post = null,
+  initialPostType = 'lost',
 }) {
-  const [values, setValues] = useState(defaultPostValues)
+  const [values, setValues] = useState(() => getDefaultPostValues(initialPostType))
   const [imageState, setImageState] = useState(emptyImageState)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -69,7 +78,7 @@ function CreatePostModal({
 
   useEffect(() => {
     if (!open) {
-      setValues(defaultPostValues)
+      setValues(getDefaultPostValues(initialPostType))
       setImageState(emptyImageState)
       setError('')
       setSubmitting(false)
@@ -89,11 +98,11 @@ function CreatePostModal({
       return
     }
 
-    setValues(defaultPostValues)
+    setValues(getDefaultPostValues(initialPostType))
     setImageState(emptyImageState)
     setError('')
     setSubmitting(false)
-  }, [isEditing, open, post])
+  }, [initialPostType, isEditing, open, post])
 
   useEffect(() => () => {
     if (imageState.isObjectUrl && imageState.preview) {
@@ -206,8 +215,8 @@ function CreatePostModal({
         >
           <div className="community-modal-top">
             <div>
-              <h2 id="create-post-title">{isEditing ? 'Edit Post' : 'Create Community Post'}</h2>
-              <p>{isEditing ? 'Update your post details for the community.' : 'Share a lost item, found item, or community update.'}</p>
+              <h2 id="create-post-title">{isEditing ? 'Edit Item Report' : 'Create Item Report'}</h2>
+              <p>{isEditing ? 'Update your lost or found item details.' : 'Share a lost or found item with the community.'}</p>
             </div>
             <button type="button" className="modal-close-button" onClick={onClose}>
               <Icon name="close" />
@@ -216,14 +225,41 @@ function CreatePostModal({
 
           <form className="profile-form" onSubmit={handleSubmit}>
             <div className="profile-form-grid">
-              <label className="profile-form-field">
-                <span>Post Type</span>
-                <select name="postType" value={values.postType} onChange={handleChange}>
-                  <option value="community">Community Post</option>
-                  <option value="lost">Lost Item</option>
-                  <option value="found">Found Item</option>
-                </select>
-              </label>
+              <fieldset className="profile-form-field profile-form-field-full create-post-type-selector">
+                <legend>Report Type</legend>
+                <div className="create-post-type-options">
+                  {[
+                    {
+                      value: 'lost',
+                      title: 'Lost Item',
+                      description: 'I lost something and need community help.',
+                      icon: 'search',
+                    },
+                    {
+                      value: 'found',
+                      title: 'Found Item',
+                      description: 'I found something and want to return it.',
+                      icon: 'inventory',
+                    },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`create-post-type-card${values.postType === option.value ? ' is-active' : ''}`}
+                      onClick={() => {
+                        setValues((current) => ({ ...current, postType: option.value }))
+                        setError('')
+                      }}
+                    >
+                      <span>
+                        <Icon name={option.icon} />
+                      </span>
+                      <strong>{option.title}</strong>
+                      <small>{option.description}</small>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
 
               {isItemPost ? (
                 <label className="profile-form-field">
