@@ -15,6 +15,10 @@ function ItemCard({
   const [imageFailed, setImageFailed] = useState(false)
   const imageUrl = resolveImageUrl(item.image_url || item.image)
   const shouldShowImage = imageUrl && !imageFailed
+  const itemType = item.post_type ?? item.type
+  const status = item.status ?? 'approved'
+  const category = item.category?.name || 'General'
+  const ownerName = item.user?.name || 'Unknown user'
 
   useEffect(() => {
     setImageFailed(false)
@@ -57,10 +61,10 @@ function ItemCard({
       <div className="recent-item-body">
         <div className="recent-item-badges">
           <span className={`badge badge-type ${type === 'lost' ? 'badge-lost' : 'badge-found'}`}>
-            {(item.post_type ?? item.type).charAt(0).toUpperCase() + (item.post_type ?? item.type).slice(1)}
+            {itemType.charAt(0).toUpperCase() + itemType.slice(1)}
           </span>
-          <span className={`badge badge-status badge-${item.status.toLowerCase()}`}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+          <span className={`badge badge-status badge-${status.toLowerCase()}`}>
+            {status.charAt(0).toUpperCase() + status.slice(1)}
           </span>
         </div>
         <h3>{item.title}</h3>
@@ -69,24 +73,30 @@ function ItemCard({
           <Icon name="pin" />
           <span>{item.location}</span>
         </p>
-        <p className="recent-item-date">{formatDate(item.item_date || item.date)}</p>
-        <p className="recent-item-submeta">
-          {item.category?.name || 'General'} · Posted by{' '}
-          {item.user?.id ? (
-            <button
-              type="button"
-              className="inline-profile-link"
-              onClick={(event) => {
-                event.stopPropagation()
-                onUserProfileClick?.(item.user)
-              }}
-            >
-              {item.user.name || 'Unknown user'}
-            </button>
-          ) : (
-            item.user?.name || 'Unknown user'
-          )}
-        </p>
+        <div className="recent-item-footer">
+          <span className="recent-item-category">{category}</span>
+          <span className="recent-item-footer-meta recent-item-date">
+            <Icon name="clock" />
+            {formatDate(item.item_date || item.date)}
+          </span>
+          <span className="recent-item-footer-meta recent-item-submeta">
+            <Icon name="userCircle" />
+            {item.user?.id ? (
+              <button
+                type="button"
+                className="inline-profile-link"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onUserProfileClick?.(item.user)
+                }}
+              >
+                {ownerName}
+              </button>
+            ) : (
+              ownerName
+            )}
+          </span>
+        </div>
       </div>
     </article>
   )
