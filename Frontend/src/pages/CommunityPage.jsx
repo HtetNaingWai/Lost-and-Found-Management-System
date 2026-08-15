@@ -17,7 +17,7 @@ import {
 } from '../utils/notifications'
 
 const communityMenuItems = [
-  { key: 'create-post', label: 'Create Post', icon: 'plusCircle' },
+  { key: 'create-post', label: 'Create Report', icon: 'plusCircle' },
   { key: 'my-returns', label: 'My Returns', icon: 'rotateCcw' },
   { key: 'saved-posts', label: 'Saved Posts', icon: 'bookmark' },
   { key: 'notifications', label: 'Notifications', icon: 'bell' },

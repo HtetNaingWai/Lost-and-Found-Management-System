@@ -63,6 +63,7 @@ function ItemsPage({
   type,
   items,
   user,
+  categories = [],
   onStartMessage,
   onUserProfileClick,
   myClaims = [],
@@ -98,14 +99,14 @@ function ItemsPage({
   )
 
   const categoryOptions = useMemo(() => {
-    const categorySet = new Set(
-      baseItems
-        .map((item) => item.category?.name)
-        .filter(Boolean),
-    )
+    const sourceCategories = categories.length
+      ? categories.map((category) => category.name ?? category)
+      : baseItems.map((item) => item.category?.name)
+
+    const categorySet = new Set(sourceCategories.filter(Boolean))
 
     return Array.from(categorySet).sort((left, right) => left.localeCompare(right))
-  }, [baseItems])
+  }, [baseItems, categories])
 
   const filtered = useMemo(() => {
     const query = normalizeItemValue(searchValue)

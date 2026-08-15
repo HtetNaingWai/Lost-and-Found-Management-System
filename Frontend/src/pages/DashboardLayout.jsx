@@ -103,6 +103,7 @@ function DashboardContent({
           type="lost"
           items={approvedItems}
           user={user}
+          categories={categories}
           onStartMessage={onStartMessage}
           myClaims={myClaims}
           onSubmitClaim={onSubmitClaim}
@@ -117,6 +118,7 @@ function DashboardContent({
           type="found"
           items={approvedItems}
           user={user}
+          categories={categories}
           onStartMessage={onStartMessage}
           myClaims={myClaims}
           onSubmitClaim={onSubmitClaim}
