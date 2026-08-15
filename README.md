@@ -248,6 +248,17 @@ admin@findit.com
 Password:
 password123
 ```
+# Community Member Account
+```
+Email: aungaung@gmail.com
+Password: Aung@2026
+
+```
+```
+Email: toewai@gmail.com
+Password: ToeWai@2026
+
+```
 
 ---
 
