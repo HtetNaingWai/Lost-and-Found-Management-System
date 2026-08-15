@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Aug 11, 2026 at 11:42 PM
+-- Generation Time: Aug 15, 2026 at 05:30 AM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.2.4
 
@@ -122,7 +122,9 @@ INSERT INTO `claims` (`id`, `item_id`, `community_post_id`, `user_id`, `proof_de
 (3, NULL, 20, 7, 'Return completed through a FindIt item conversation.', '09754550228', 'returned', NULL, NULL, '2026-08-11 07:01:30', '2026-08-11 07:01:30', '2026-08-11 07:01:30', '2026-08-11 07:01:30'),
 (4, NULL, 19, 7, 'This is my cap . it size is 32.', '09754550228', 'returned', NULL, NULL, NULL, '2026-08-11 07:10:39', '2026-08-11 07:05:06', '2026-08-11 07:10:39'),
 (5, NULL, 8, 7, 'hello connect me , it is my bag.', '09754550228', 'returned', NULL, NULL, NULL, '2026-08-11 08:56:11', '2026-08-11 07:27:19', '2026-08-11 08:56:11'),
-(6, NULL, 16, 7, 'This is my jacket.', '09754550228', 'returned', NULL, NULL, NULL, '2026-08-11 11:04:14', '2026-08-11 09:58:53', '2026-08-11 11:04:14');
+(6, NULL, 16, 7, 'This is my jacket.', '09754550228', 'returned', NULL, NULL, NULL, '2026-08-11 11:04:14', '2026-08-11 09:58:53', '2026-08-11 11:04:14'),
+(7, NULL, 24, 3, 'this is my bag. i\'ll approve it.', '0989978789', 'returned', NULL, NULL, NULL, '2026-08-14 10:48:42', '2026-08-14 10:46:14', '2026-08-14 10:48:42'),
+(8, NULL, 29, 3, 'This is my wallet', '0989978789', 'returned', NULL, NULL, NULL, '2026-08-14 20:11:13', '2026-08-14 20:10:20', '2026-08-14 20:11:13');
 
 -- --------------------------------------------------------
 
@@ -173,7 +175,10 @@ INSERT INTO `community_posts` (`id`, `user_id`, `post_type`, `title`, `content`,
 (21, 7, 'lost', 'Pink Wallet', 'ပန်းရောင် wallet လေး ပျောက်သွားလို့ပါ. အထဲမှာ ID card လေးက အရေးကြီးလို့ပါ.', 2, 'Yan Myo Lon Ward, Chanayethazan, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05021, Myanmar', 21.9733573, 96.0994720, '2026-08-11', 'community-posts/qMlxI3FcIXFZ1rAclo8ANrHKWxnibAEQhBoB0iX5.jpg', 'approved', NULL, 1, '2026-08-11 00:47:30', NULL, NULL, '2026-08-11 00:46:17', '2026-08-11 00:47:30'),
 (22, 7, 'lost', 'Cycle Keys', 'ဆိုင်ကယ် သော့လေး ကျပျောက်သွားလို့ပါ. အိမ်တံခါးသော့ လေးပါ ပါနေလို့ပါ.', 4, '66th Street, Ma Har Myaing (1) Ward, Chanmyathazi, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05041, Myanmar', 21.9522483, 96.1047935, '2026-08-10', 'community-posts/FCr9xiVb8ZbFd0Wfvbon0aACWF8yNlXQhJbqtDFs.jpg', 'approved', 'သော့လေးက ကျပျောက်တာ မှန်ကန်ပါတယ်.', 1, '2026-08-11 03:30:55', NULL, NULL, '2026-08-11 03:29:46', '2026-08-11 03:30:55'),
 (23, 7, 'found', 'Men\'s Black Watch', 'i found a black watch .', 9, 'Ma Har Myaing (1) Ward, Maha Aungmye, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05071, Myanmar', 21.9556393, 96.1030769, '2026-08-11', 'community-posts/f5zCMzfJJhm9WzaOfihGUiOd5Lua3gzvnuGYIvOP.webp', 'pending', NULL, NULL, NULL, NULL, NULL, '2026-08-11 03:42:13', '2026-08-11 03:42:13'),
-(24, 6, 'found', 'Gucci Black Bag', 'အိတ်အမဲရောင်လေး ရှာတွေလို့ပါ.', 3, 'Hay Ma Mar Lar (South) Ward, Maha Aungmye, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05024, Myanmar', 21.9631065, 96.0926056, '2026-08-10', 'community-posts/Y7tKBWlJoUyhWvhbBy9sRDMtYVBEZRa933Mm9bBp.webp', 'approved', 'အိတ်လေးပျောင်နေပါတယ်. အထဲမှာ ပါတဲ့ အသေးစိတ်လေးကို ပြောပြပြီး cliam လို့ရပါတယ်.', 1, '2026-08-11 10:02:40', NULL, NULL, '2026-08-11 10:01:23', '2026-08-11 10:02:40');
+(24, 6, 'found', 'Gucci Black Bag', 'အိတ်အမဲရောင်လေး ရှာတွေလို့ပါ.', 3, 'Hay Ma Mar Lar (South) Ward, Maha Aungmye, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05024, Myanmar', 21.9631065, 96.0926056, '2026-08-10', 'community-posts/Y7tKBWlJoUyhWvhbBy9sRDMtYVBEZRa933Mm9bBp.webp', 'returned', 'အိတ်လေးပျောင်နေပါတယ်. အထဲမှာ ပါတဲ့ အသေးစိတ်လေးကို ပြောပြပြီး cliam လို့ရပါတယ်.', 1, '2026-08-11 10:02:40', NULL, '2026-08-14 10:48:42', '2026-08-11 10:01:23', '2026-08-14 10:48:42'),
+(28, 3, 'lost', 'Black Wallet Bag', 'I lost my wallet bag.', 3, '68th Street, Myo Thit No (1) Ward, Chanmyathazi, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05041, Burma', 21.9439519, 96.1016393, '2026-08-15', 'community-posts/Mj4FOfdlSmRsbVfK10CairxtcZUM9SMuFnex6Vzj.webp', 'approved', 'Approved by admin', 1, '2026-08-14 11:52:43', NULL, NULL, '2026-08-14 11:51:14', '2026-08-14 11:52:43'),
+(29, 6, 'found', 'Girl\'s Purple Wallet', 'I Found a purple wallet near the 34st. bus station.', 2, 'Pagoda, 39th Street, Ma Har Myaing (1) Ward, Maha Aungmye, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05071, Burma', 21.9601675, 96.1073685, '2026-08-14', 'community-posts/atWKArNCrtE7OpnXncuTdU0N15Dm3KbaDkQiAWa6.jpg', 'returned', 'Approved by Admin.', 1, '2026-08-14 19:53:08', NULL, '2026-08-14 20:11:13', '2026-08-14 19:52:47', '2026-08-14 20:11:13'),
+(30, 3, 'lost', 'Black Wallet', 'I lost my wallet near the bus station.', 2, '112nd Street, Myo Thit No (5) Ward, Chanmyathazi, Mahaaungmyay District, Mandalay, Mandalay City, Mandalay, 05041, Burma', 21.9281181, 96.1038709, '2026-08-14', 'community-posts/h0Wg5LDqMM9smhfHbWZlaUC7VFDFtwzI2hYtFqRi.jpg', 'approved', 'Approved by Admin.', 1, '2026-08-14 20:08:27', NULL, NULL, '2026-08-14 20:07:13', '2026-08-14 20:08:27');
 
 -- --------------------------------------------------------
 
@@ -399,7 +404,17 @@ INSERT INTO `messages` (`id`, `sender_id`, `receiver_id`, `support_conversation_
 (51, 1, 7, 1, NULL, NULL, 'This is Ture\n\nContext: Men\'s Black Watch', NULL, NULL, NULL, 1, '2026-08-11 12:40:42', NULL, '2026-08-11 12:40:23', '2026-08-11 12:40:42'),
 (52, 1, 3, 2, NULL, NULL, 'Hello', NULL, NULL, NULL, 1, '2026-08-11 13:49:23', NULL, '2026-08-11 12:42:11', '2026-08-11 13:49:23'),
 (53, 7, 1, 1, NULL, NULL, 'yes that is true', NULL, NULL, NULL, 1, '2026-08-11 12:46:02', NULL, '2026-08-11 12:44:15', '2026-08-11 12:46:02'),
-(54, 1, 7, 1, NULL, NULL, 'Thank You', NULL, NULL, NULL, 1, '2026-08-11 13:42:03', NULL, '2026-08-11 13:41:40', '2026-08-11 13:42:03');
+(54, 1, 7, 1, NULL, NULL, 'Thank You', NULL, NULL, NULL, 1, '2026-08-11 13:42:03', NULL, '2026-08-11 13:41:40', '2026-08-11 13:42:03'),
+(55, 3, 7, NULL, NULL, 15, 'hello', NULL, NULL, NULL, 1, '2026-08-12 01:39:54', NULL, '2026-08-12 01:39:49', '2026-08-12 01:39:54'),
+(56, 7, 3, NULL, NULL, 15, 'hello', NULL, NULL, NULL, 1, '2026-08-12 01:40:09', NULL, '2026-08-12 01:40:00', '2026-08-12 01:40:09'),
+(57, 3, 7, NULL, NULL, 21, 'hello', NULL, NULL, NULL, 1, '2026-08-12 02:15:17', NULL, '2026-08-12 02:15:08', '2026-08-12 02:15:17'),
+(58, 7, 1, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, '2026-08-12 08:04:18', '2026-08-12 08:04:16', '2026-08-12 08:04:18'),
+(59, 3, 6, NULL, NULL, 24, 'hrllo', NULL, NULL, NULL, 1, '2026-08-14 10:47:10', NULL, '2026-08-14 10:46:51', '2026-08-14 10:47:10'),
+(60, 3, 1, 2, NULL, NULL, 'hello', NULL, NULL, NULL, 1, '2026-08-14 10:56:44', NULL, '2026-08-14 10:56:33', '2026-08-14 10:56:44'),
+(61, 1, 3, 2, NULL, NULL, 'hello', NULL, NULL, NULL, 1, '2026-08-14 10:57:07', NULL, '2026-08-14 10:57:01', '2026-08-14 10:57:07'),
+(62, 3, 6, NULL, NULL, 29, 'hello', NULL, NULL, NULL, 1, '2026-08-14 20:11:06', NULL, '2026-08-14 20:11:00', '2026-08-14 20:11:06'),
+(63, 3, 1, 2, NULL, NULL, 'hello', NULL, NULL, NULL, 1, '2026-08-14 20:15:21', NULL, '2026-08-14 20:15:03', '2026-08-14 20:15:21'),
+(64, 1, 3, 2, NULL, NULL, 'hello', NULL, NULL, NULL, 1, '2026-08-14 20:15:30', NULL, '2026-08-14 20:15:27', '2026-08-14 20:15:30');
 
 -- --------------------------------------------------------
 
@@ -504,7 +519,11 @@ INSERT INTO `personal_access_tokens` (`id`, `tokenable_type`, `tokenable_id`, `n
 (61, 'App\\Models\\User', 3, 'findit-auth-token', '6658a1b815cbbcaee0664a387876cdbf96f256c54ff138c4ca89a87193365a7e', '[\"*\"]', '2026-08-10 14:20:51', NULL, '2026-08-10 14:16:15', '2026-08-10 14:20:51'),
 (68, 'App\\Models\\User', 1, 'findit-auth-token', 'b1fc9c91453f02f0739464a29cb16b7166c04dc6f34fb4669df9080e60ba2d29', '[\"*\"]', '2026-08-11 14:48:28', NULL, '2026-08-11 09:05:05', '2026-08-11 14:48:28'),
 (77, 'App\\Models\\User', 3, 'findit-auth-token', '2aac02b2335f312e948510dd2b4c80f4ad0a679e4edb9622610a8670a17a2f7a', '[\"*\"]', '2026-08-11 14:48:30', NULL, '2026-08-11 14:18:43', '2026-08-11 14:48:30'),
-(80, 'App\\Models\\User', 1, 'findit-auth-token', '84348a34aa0337787537a3e7201e7b446c33124c4735d1f75dbce1e6e912ec54', '[\"*\"]', '2026-08-11 15:08:09', NULL, '2026-08-11 14:51:09', '2026-08-11 15:08:09');
+(80, 'App\\Models\\User', 1, 'findit-auth-token', '84348a34aa0337787537a3e7201e7b446c33124c4735d1f75dbce1e6e912ec54', '[\"*\"]', '2026-08-11 15:17:52', NULL, '2026-08-11 14:51:09', '2026-08-11 15:17:52'),
+(84, 'App\\Models\\User', 7, 'findit-auth-token', 'e2ef7c270d83e37b8dcada980d57c724cf62949717c4cc3a3b0702e7b6f05f90', '[\"*\"]', '2026-08-12 08:08:39', NULL, '2026-08-12 01:38:56', '2026-08-12 08:08:39'),
+(98, 'App\\Models\\User', 6, 'findit-auth-token', '5dd6bd753d93cdc560c96612ff9f6f3d06d96651f45359b7ebc941f987593a30', '[\"*\"]', '2026-08-14 20:58:38', NULL, '2026-08-14 19:57:35', '2026-08-14 20:58:38'),
+(99, 'App\\Models\\User', 3, 'findit-auth-token', 'fa25ac981aec36b512f6b949951156c7654980de168c7a51c2d04cd5173f3733', '[\"*\"]', '2026-08-14 20:58:38', NULL, '2026-08-14 20:04:03', '2026-08-14 20:58:38'),
+(100, 'App\\Models\\User', 1, 'findit-auth-token', '7f39744a45891266d7edfb382751ad2f4fd21ed6d4e799ad1cabfddffb7f987c', '[\"*\"]', '2026-08-14 20:46:27', NULL, '2026-08-14 20:07:48', '2026-08-14 20:46:27');
 
 -- --------------------------------------------------------
 
@@ -528,7 +547,8 @@ INSERT INTO `saved_posts` (`id`, `user_id`, `community_post_id`, `created_at`, `
 (2, 6, 12, '2026-08-10 11:08:24', '2026-08-10 11:08:24'),
 (3, 7, 13, '2026-08-10 11:31:13', '2026-08-10 11:31:13'),
 (4, 2, 14, '2026-08-10 12:25:26', '2026-08-10 12:25:26'),
-(5, 3, 16, '2026-08-10 13:08:52', '2026-08-10 13:08:52');
+(5, 3, 16, '2026-08-10 13:08:52', '2026-08-10 13:08:52'),
+(7, 3, 15, '2026-08-14 11:49:07', '2026-08-14 11:49:07');
 
 -- --------------------------------------------------------
 
@@ -570,7 +590,8 @@ INSERT INTO `support_conversations` (`id`, `user_id`, `admin_id`, `type`, `statu
 (1, 7, 1, 'support', 'in_progress', NULL, '2026-08-11 11:40:05', '2026-08-11 11:41:53'),
 (2, 3, 1, 'support', 'in_progress', NULL, '2026-08-11 11:58:15', '2026-08-11 12:42:11'),
 (3, 8, 1, 'support', 'open', NULL, '2026-08-11 12:27:44', '2026-08-11 12:27:44'),
-(4, 6, 1, 'support', 'open', NULL, '2026-08-11 14:56:23', '2026-08-11 14:56:23');
+(4, 6, 1, 'support', 'open', NULL, '2026-08-11 14:56:23', '2026-08-11 14:56:23'),
+(5, 4, 1, 'support', 'open', NULL, '2026-08-14 08:44:10', '2026-08-14 08:44:10');
 
 -- --------------------------------------------------------
 
@@ -609,12 +630,12 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `name`, `email`, `phone`, `nrc_no`, `nrc_front_photo`, `nrc_back_photo`, `profile_image`, `email_verified_at`, `password`, `role`, `status`, `is_online`, `last_seen_at`, `banned_at`, `ban_reason`, `show_phone_publicly`, `show_email_publicly`, `show_location_publicly`, `public_location`, `remember_token`, `created_at`, `updated_at`) VALUES
-(1, 'Admin', 'admin@findit.com', NULL, NULL, NULL, NULL, NULL, NULL, '$2y$12$xXBkv.D5B3jj2AEzqqDvNe5EDur/oZXrdTzVfvJ02LzvMik5ukHuG', 'admin', 'active', 1, '2026-08-11 15:08:09', NULL, NULL, 0, 0, 0, NULL, NULL, '2026-07-06 01:49:06', '2026-08-11 15:08:09'),
+(1, 'Admin', 'admin@findit.com', NULL, NULL, NULL, NULL, NULL, NULL, '$2y$12$xXBkv.D5B3jj2AEzqqDvNe5EDur/oZXrdTzVfvJ02LzvMik5ukHuG', 'admin', 'active', 1, '2026-08-14 20:46:27', NULL, NULL, 0, 0, 0, NULL, NULL, '2026-07-06 01:49:06', '2026-08-14 20:46:27'),
 (2, 'Htet Naing Wai', 'htetnaingwei@gmail.com', '09752618310', '9/POL(N)080575', 'nrc-photos/gmMR4BRgBQSk5qIvHKYU3tnNCux0sFa6zRYIA3F1.jpg', 'nrc-photos/nxSQ2Y5u67AuIrbjR3zhSCpoD1jRRMOPByUwjVfA.jpg', NULL, NULL, '$2y$12$V9MwF1xZPWyjEgXUSYfYR.1uHYFPyOOpFVXm.W3vT8lxDuU74d/Z2', 'user', 'active', 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, '2026-07-06 01:51:19', '2026-07-06 02:46:55'),
-(3, 'Charm', 'aungaung@gmail.com', '0989978789', '9/PoL(N)93387', 'nrc-photos/qkV81KPeGQ8hJfJedmAaMLSi2M2bEPBxmz84n5Uv.jpg', 'nrc-photos/dDeVRHbAaHuNvAW0n5BED4fCYpiGqIFOfwozvBkZ.jpg', 'profile-images/4Cjyct6m1q2bHTPDqgkghdiLnF2Jt5MRRJKhcROs.png', NULL, '$2y$12$SgPA3im/lWE.Wd6mQFaZ/.C0E0ffGG62xJ.R/1qbcNPlr4EoQM0qi', 'user', 'active', 0, '2026-08-11 15:04:39', NULL, NULL, 0, 0, 0, NULL, NULL, '2026-07-06 02:29:31', '2026-08-11 15:04:39'),
-(4, 'Naing Gyi', 'nainggyi@gmail.com', '09098988', '9/pok(n)98989', 'nrc-photos/wjfmy8NUCKHitJUl9fGPzVkhcU5WAVbr7L05weRo.jpg', 'nrc-photos/fFhGWBrw5bMAkuRiq1UraKDeDXUFZZ24AxL9a36Y.jpg', 'profile-images/TiBOI41pFdpT1WrscJjWg7LTAmcj4bSbcVZ3t5u2.jpg', NULL, '$2y$12$m11do574i3aEbhr8Wn8pNO0Ii3dGrZOqR6EoGaLXv8xpyDeEr9Skq', 'user', 'active', 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, '2026-07-06 12:09:43', '2026-07-08 02:00:40'),
-(6, 'Toe Wai', 'toewai@gmail.com', '09898989898', '9/PPL(N)08738', 'nrc-photos/JTT6uk2kqmw24IEODTThyNKZrizR6wtDHK6qn6wF.jpg', 'nrc-photos/3iiiDFUBl4F4MWSZz5nDNNlkw4uJhXHfr756pfAe.jpg', 'profile-images/GLg5V585WS4g0Lw7wilAXqFXY6GRLNEhuCMOWTUV.png', NULL, '$2y$12$SChqYzbfXVefKNXPBqZajes5bN.TZcrmYHUmSd4fM.jIf12.m8C9y', 'user', 'active', 0, '2026-08-11 15:05:35', NULL, NULL, 0, 0, 0, NULL, NULL, '2026-08-10 07:20:50', '2026-08-11 15:05:35'),
-(7, 'Cecilia', 'cecilia@gmail.com', '09754550228', '1/KaAaZa(N)097453', 'nrc-photos/ChOSrkQFQFjayBtzN6GsEofvRqlpWUnUKZfWMqmT.jpg', 'nrc-photos/EZyqt1R7RpuTsrdNb7TE4t755EdloV1L29zbDVDp.jpg', NULL, NULL, '$2y$12$ZC4Rp6tyB5nVTjMfBV243eBeVk/b5VHj.do/clR7pM8VgPNwHFini', 'user', 'active', 0, '2026-08-11 13:48:03', NULL, NULL, 1, 1, 1, NULL, NULL, '2026-08-10 11:27:18', '2026-08-11 13:48:03'),
+(3, 'Charm', 'aungaung@gmail.com', '0989978789', '9/PoL(N)93387', 'nrc-photos/qkV81KPeGQ8hJfJedmAaMLSi2M2bEPBxmz84n5Uv.jpg', 'nrc-photos/dDeVRHbAaHuNvAW0n5BED4fCYpiGqIFOfwozvBkZ.jpg', 'profile-images/4Cjyct6m1q2bHTPDqgkghdiLnF2Jt5MRRJKhcROs.png', NULL, '$2y$12$SgPA3im/lWE.Wd6mQFaZ/.C0E0ffGG62xJ.R/1qbcNPlr4EoQM0qi', 'user', 'active', 1, '2026-08-14 20:58:38', NULL, NULL, 1, 1, 1, NULL, NULL, '2026-07-06 02:29:31', '2026-08-14 20:58:38'),
+(4, 'Naing Gyi', 'nainggyi@gmail.com', '09098988', '9/pok(n)98989', 'nrc-photos/wjfmy8NUCKHitJUl9fGPzVkhcU5WAVbr7L05weRo.jpg', 'nrc-photos/fFhGWBrw5bMAkuRiq1UraKDeDXUFZZ24AxL9a36Y.jpg', 'profile-images/TiBOI41pFdpT1WrscJjWg7LTAmcj4bSbcVZ3t5u2.jpg', NULL, '$2y$12$m11do574i3aEbhr8Wn8pNO0Ii3dGrZOqR6EoGaLXv8xpyDeEr9Skq', 'user', 'active', 0, '2026-08-14 10:44:56', NULL, NULL, 0, 0, 0, NULL, NULL, '2026-07-06 12:09:43', '2026-08-14 10:44:56'),
+(6, 'Toe Wai', 'toewai@gmail.com', '09898989898', '9/PPL(N)08738', 'nrc-photos/JTT6uk2kqmw24IEODTThyNKZrizR6wtDHK6qn6wF.jpg', 'nrc-photos/3iiiDFUBl4F4MWSZz5nDNNlkw4uJhXHfr756pfAe.jpg', 'profile-images/GLg5V585WS4g0Lw7wilAXqFXY6GRLNEhuCMOWTUV.png', NULL, '$2y$12$SChqYzbfXVefKNXPBqZajes5bN.TZcrmYHUmSd4fM.jIf12.m8C9y', 'user', 'active', 1, '2026-08-14 20:58:38', NULL, NULL, 0, 0, 0, NULL, NULL, '2026-08-10 07:20:50', '2026-08-14 20:58:38'),
+(7, 'Cecilia', 'cecilia@gmail.com', '09754550228', '1/KaAaZa(N)097453', 'nrc-photos/ChOSrkQFQFjayBtzN6GsEofvRqlpWUnUKZfWMqmT.jpg', 'nrc-photos/EZyqt1R7RpuTsrdNb7TE4t755EdloV1L29zbDVDp.jpg', NULL, NULL, '$2y$12$ZC4Rp6tyB5nVTjMfBV243eBeVk/b5VHj.do/clR7pM8VgPNwHFini', 'user', 'active', 1, '2026-08-12 08:08:39', NULL, NULL, 1, 1, 1, NULL, NULL, '2026-08-10 11:27:18', '2026-08-12 08:08:39'),
 (8, 'Myo Naing Win', 'myonaingwin@gmail.com', '09876545462', '12/YGN(N)3733', 'nrc-photos/4h8bVrgDdNmXiHVNbD9CVuZWbhZ3vV7leebKaepL.jpg', 'nrc-photos/iU2hf05B7iBSaXABlpOwqHoHJPoQr4PsnU8aIEOO.jpg', 'profile-images/CLqJfytGDhNRAUFgPsLrXxWjQDdnExOHoVUz1VWY.png', NULL, '$2y$12$AZIuC4AnvSzJZLpd7B3xvO1w7bqy23QfblGwfxi43JQLEqV1Y7f2W', 'user', 'active', 0, '2026-08-11 13:40:40', NULL, NULL, 0, 0, 0, NULL, NULL, '2026-08-10 13:42:20', '2026-08-11 13:40:40');
 
 -- --------------------------------------------------------
@@ -764,7 +785,43 @@ INSERT INTO `user_notifications` (`id`, `recipient_user_id`, `type`, `title`, `d
 (122, 1, 'support_message_received', 'New support message', 'Cecilia sent a support message.', '{\"support_conversation_id\":1,\"sender_id\":7,\"route\":\"\\/admin\\/contact-messages\"}', NULL, '2026-08-11 12:44:15', '2026-08-11 12:44:15'),
 (123, 8, 'account_banned', 'Account suspended', 'Your account has been suspended by FindIt Admin.', '{\"user_id\":8,\"reason\":null}', NULL, '2026-08-11 12:57:03', '2026-08-11 12:57:03'),
 (124, 8, 'account_activated', 'Account reactivated', 'Your FindIt account has been reactivated.', '{\"user_id\":8}', NULL, '2026-08-11 12:57:39', '2026-08-11 12:57:39'),
-(125, 7, 'support_reply_received', 'Support replied', 'FindIt Admin replied to your support conversation.', '{\"support_conversation_id\":1,\"sender_id\":1,\"route\":\"\\/contact\"}', NULL, '2026-08-11 13:41:40', '2026-08-11 13:41:40');
+(125, 7, 'support_reply_received', 'Support replied', 'FindIt Admin replied to your support conversation.', '{\"support_conversation_id\":1,\"sender_id\":1,\"route\":\"\\/contact\"}', NULL, '2026-08-11 13:41:40', '2026-08-11 13:41:40'),
+(126, 7, 'message_received', 'New message received', 'Charm sent you a new message.', '{\"message_id\":55,\"sender_id\":3,\"community_post_id\":\"15\",\"item_id\":null}', '2026-08-12 01:39:54', '2026-08-12 01:39:49', '2026-08-12 01:39:54'),
+(127, 3, 'message_received', 'New message received', 'Cecilia sent you a new message.', '{\"message_id\":56,\"sender_id\":7,\"community_post_id\":\"15\",\"item_id\":null}', '2026-08-12 01:40:09', '2026-08-12 01:40:00', '2026-08-12 01:40:09'),
+(128, 7, 'message_received', 'New message received', 'Charm sent you a new message.', '{\"message_id\":57,\"sender_id\":3,\"community_post_id\":\"21\",\"item_id\":null}', '2026-08-12 02:15:15', '2026-08-12 02:15:08', '2026-08-12 02:15:15'),
+(129, 1, 'support_message_received', 'New support message', 'Cecilia sent a support message.', '{\"support_conversation_id\":1,\"sender_id\":7,\"route\":\"\\/admin\\/contact-messages\"}', NULL, '2026-08-12 08:04:16', '2026-08-12 08:04:16'),
+(130, 3, 'post_submitted', 'Lost post submitted', 'Your post is pending admin review.', '{\"post_id\":25,\"post_type\":\"lost\"}', NULL, '2026-08-14 10:29:47', '2026-08-14 10:29:47'),
+(131, 3, 'post_submitted', 'Found post submitted', 'Your post is pending admin review.', '{\"post_id\":26,\"post_type\":\"found\"}', NULL, '2026-08-14 10:31:05', '2026-08-14 10:31:05'),
+(132, 3, 'post_approved', 'Post approved', 'Your Found item \"Black bag\" has been approved and is now visible. Admin feedback: admin approved', '{\"post_id\":26,\"post_type\":\"found\"}', NULL, '2026-08-14 10:34:10', '2026-08-14 10:34:10'),
+(133, 3, 'post_approved', 'Post approved', 'Your Lost item \"Black Wallet\" has been approved and is now visible. Admin feedback: admin approve', '{\"post_id\":25,\"post_type\":\"lost\"}', NULL, '2026-08-14 10:34:28', '2026-08-14 10:34:28'),
+(134, 3, 'claim_submitted', 'Claim submitted', 'Gucci Black Bag was sent to the finder for review.', '{\"claim_id\":7,\"community_post_id\":24,\"section\":\"my-returns\"}', NULL, '2026-08-14 10:46:14', '2026-08-14 10:46:14'),
+(135, 6, 'claim_received', 'New claim received', 'Charm submitted a claim for your found item \"Gucci Black Bag\".', '{\"claim_id\":7,\"community_post_id\":24,\"claimant_id\":3,\"section\":\"my-found\"}', '2026-08-14 10:47:04', '2026-08-14 10:46:14', '2026-08-14 10:47:04'),
+(136, 6, 'message_received', 'New message received', 'Charm sent you a new message.', '{\"message_id\":59,\"sender_id\":3,\"community_post_id\":\"24\",\"item_id\":null}', '2026-08-14 10:47:10', '2026-08-14 10:46:51', '2026-08-14 10:47:10'),
+(137, 3, 'item_returned', 'Item returned', 'Gucci Black Bag has been marked as returned.', '{\"claim_id\":7,\"community_post_id\":24,\"returned_by\":6,\"section\":\"my-returns\",\"dedupe_key\":\"item_returned:claim:7:recipient:3\"}', NULL, '2026-08-14 10:48:42', '2026-08-14 10:48:42'),
+(138, 6, 'return_completed', 'Return completed', 'Gucci Black Bag has been recorded as successfully returned.', '{\"claim_id\":7,\"community_post_id\":24,\"claimant_id\":3,\"section\":\"my-found\",\"dedupe_key\":\"return_completed:claim:7:recipient:6\"}', NULL, '2026-08-14 10:48:42', '2026-08-14 10:48:42'),
+(139, 3, 'rating_available', 'Rate your return experience', 'Your return for \"Gucci Black Bag\" is complete. How was your experience with the finder, Toe Wai?', '{\"action\":\"rating_available\",\"claim_id\":7,\"community_post_id\":24,\"reviewed_user_id\":6,\"reviewed_role\":\"finder\",\"section\":\"my-returns\",\"dedupe_key\":\"rating_available:claim:7:reviewer:3\"}', NULL, '2026-08-14 10:48:42', '2026-08-14 10:48:42'),
+(140, 6, 'rating_available', 'Rate your return experience', 'Your return for \"Gucci Black Bag\" is complete. How was your experience with the owner, Charm?', '{\"action\":\"rating_available\",\"claim_id\":7,\"community_post_id\":24,\"reviewed_user_id\":3,\"reviewed_role\":\"owner\",\"section\":\"my-found\",\"dedupe_key\":\"rating_available:claim:7:reviewer:6\"}', NULL, '2026-08-14 10:48:42', '2026-08-14 10:48:42'),
+(141, 6, 'rating_received', 'New review received', 'Charm left you a 4-star rating.', '{\"action\":\"rating_received\",\"rating_id\":4,\"claim_id\":7,\"community_post_id\":24,\"reviewer_id\":3,\"reviewed_user_id\":6,\"section\":\"profile-reviews\",\"dedupe_key\":\"rating_received:rating:4\"}', NULL, '2026-08-14 10:50:52', '2026-08-14 10:50:52'),
+(142, 1, 'support_message_received', 'New support message', 'Charm sent a support message.', '{\"support_conversation_id\":2,\"sender_id\":3,\"route\":\"\\/admin\\/contact-messages\"}', NULL, '2026-08-14 10:56:33', '2026-08-14 10:56:33'),
+(143, 3, 'support_reply_received', 'Support replied', 'FindIt Admin replied to your support conversation.', '{\"support_conversation_id\":2,\"sender_id\":1,\"route\":\"\\/contact\"}', NULL, '2026-08-14 10:57:01', '2026-08-14 10:57:01'),
+(144, 3, 'post_submitted', 'Lost post submitted', 'Your post is pending admin review.', '{\"post_id\":27,\"post_type\":\"lost\"}', NULL, '2026-08-14 11:33:19', '2026-08-14 11:33:19'),
+(145, 3, 'post_submitted', 'Lost post submitted', 'Your post is pending admin review.', '{\"post_id\":28,\"post_type\":\"lost\"}', NULL, '2026-08-14 11:51:14', '2026-08-14 11:51:14'),
+(146, 3, 'post_approved', 'Post approved', 'Your Lost item \"Black Wallet Bag\" has been approved and is now visible. Admin feedback: Approved by admin', '{\"post_id\":28,\"post_type\":\"lost\"}', NULL, '2026-08-14 11:52:43', '2026-08-14 11:52:43'),
+(147, 6, 'post_submitted', 'Found post submitted', 'Your post is pending admin review.', '{\"post_id\":29,\"post_type\":\"found\"}', NULL, '2026-08-14 19:52:47', '2026-08-14 19:52:47'),
+(148, 6, 'post_approved', 'Post approved', 'Your Found item \"Girl\'s Purple Wallet\" has been approved and is now visible. Admin feedback: Approved by Admin.', '{\"post_id\":29,\"post_type\":\"found\"}', NULL, '2026-08-14 19:53:08', '2026-08-14 19:53:08'),
+(149, 3, 'post_submitted', 'Lost post submitted', 'Your post is pending admin review.', '{\"post_id\":30,\"post_type\":\"lost\"}', NULL, '2026-08-14 20:07:13', '2026-08-14 20:07:13'),
+(150, 3, 'post_approved', 'Post approved', 'Your Lost item \"Black Wallet\" has been approved and is now visible. Admin feedback: Approved by Admin.', '{\"post_id\":30,\"post_type\":\"lost\"}', NULL, '2026-08-14 20:08:27', '2026-08-14 20:08:27'),
+(151, 3, 'claim_submitted', 'Claim submitted', 'Girl\'s Purple Wallet was sent to the finder for review.', '{\"claim_id\":8,\"community_post_id\":29,\"section\":\"my-returns\"}', NULL, '2026-08-14 20:10:20', '2026-08-14 20:10:20'),
+(152, 6, 'claim_received', 'New claim received', 'Charm submitted a claim for your found item \"Girl\'s Purple Wallet\".', '{\"claim_id\":8,\"community_post_id\":29,\"claimant_id\":3,\"section\":\"my-found\"}', NULL, '2026-08-14 20:10:20', '2026-08-14 20:10:20'),
+(153, 6, 'message_received', 'New message received', 'Charm sent you a new message.', '{\"message_id\":62,\"sender_id\":3,\"community_post_id\":\"29\",\"item_id\":null}', '2026-08-14 20:11:05', '2026-08-14 20:11:00', '2026-08-14 20:11:05'),
+(154, 3, 'item_returned', 'Item returned', 'Girl\'s Purple Wallet has been marked as returned.', '{\"claim_id\":8,\"community_post_id\":29,\"returned_by\":6,\"section\":\"my-returns\",\"dedupe_key\":\"item_returned:claim:8:recipient:3\"}', NULL, '2026-08-14 20:11:13', '2026-08-14 20:11:13'),
+(155, 6, 'return_completed', 'Return completed', 'Girl\'s Purple Wallet has been recorded as successfully returned.', '{\"claim_id\":8,\"community_post_id\":29,\"claimant_id\":3,\"section\":\"my-found\",\"dedupe_key\":\"return_completed:claim:8:recipient:6\"}', NULL, '2026-08-14 20:11:13', '2026-08-14 20:11:13'),
+(156, 3, 'rating_available', 'Rate your return experience', 'Your return for \"Girl\'s Purple Wallet\" is complete. How was your experience with the finder, Toe Wai?', '{\"action\":\"rating_available\",\"claim_id\":8,\"community_post_id\":29,\"reviewed_user_id\":6,\"reviewed_role\":\"finder\",\"section\":\"my-returns\",\"dedupe_key\":\"rating_available:claim:8:reviewer:3\"}', NULL, '2026-08-14 20:11:13', '2026-08-14 20:11:13'),
+(157, 6, 'rating_available', 'Rate your return experience', 'Your return for \"Girl\'s Purple Wallet\" is complete. How was your experience with the owner, Charm?', '{\"action\":\"rating_available\",\"claim_id\":8,\"community_post_id\":29,\"reviewed_user_id\":3,\"reviewed_role\":\"owner\",\"section\":\"my-found\",\"dedupe_key\":\"rating_available:claim:8:reviewer:6\"}', NULL, '2026-08-14 20:11:13', '2026-08-14 20:11:13'),
+(158, 3, 'rating_received', 'New review received', 'Toe Wai left you a 4-star rating.', '{\"action\":\"rating_received\",\"rating_id\":5,\"claim_id\":8,\"community_post_id\":29,\"reviewer_id\":6,\"reviewed_user_id\":3,\"section\":\"profile-reviews\",\"dedupe_key\":\"rating_received:rating:5\"}', NULL, '2026-08-14 20:11:31', '2026-08-14 20:11:31'),
+(159, 6, 'rating_received', 'New review received', 'Charm left you a 3-star rating.', '{\"action\":\"rating_received\",\"rating_id\":6,\"claim_id\":8,\"community_post_id\":29,\"reviewer_id\":3,\"reviewed_user_id\":6,\"section\":\"profile-reviews\",\"dedupe_key\":\"rating_received:rating:6\"}', NULL, '2026-08-14 20:12:22', '2026-08-14 20:12:22'),
+(160, 1, 'support_message_received', 'New support message', 'Charm sent a support message.', '{\"support_conversation_id\":2,\"sender_id\":3,\"route\":\"\\/admin\\/contact-messages\"}', NULL, '2026-08-14 20:15:03', '2026-08-14 20:15:03'),
+(161, 3, 'support_reply_received', 'Support replied', 'FindIt Admin replied to your support conversation.', '{\"support_conversation_id\":2,\"sender_id\":1,\"route\":\"\\/contact\"}', NULL, '2026-08-14 20:15:27', '2026-08-14 20:15:27');
 
 -- --------------------------------------------------------
 
@@ -791,7 +848,10 @@ CREATE TABLE `user_ratings` (
 INSERT INTO `user_ratings` (`id`, `reviewer_id`, `reviewed_user_id`, `community_post_id`, `claim_id`, `rating`, `comment`, `created_at`, `updated_at`) VALUES
 (1, 6, 7, 8, 5, 3, 'Thank You', '2026-08-11 08:57:09', '2026-08-11 08:57:09'),
 (2, 3, 7, 16, 6, 3, 'She is good person.', '2026-08-11 11:04:29', '2026-08-11 11:04:29'),
-(3, 7, 3, 16, 6, 4, 'Thank for helping.', '2026-08-11 11:05:12', '2026-08-11 11:05:12');
+(3, 7, 3, 16, 6, 4, 'Thank for helping.', '2026-08-11 11:05:12', '2026-08-11 11:05:12'),
+(4, 3, 6, 24, 7, 4, 'thank', '2026-08-14 10:50:52', '2026-08-14 10:50:52'),
+(5, 6, 3, 29, 8, 4, NULL, '2026-08-14 20:11:31', '2026-08-14 20:11:31'),
+(6, 3, 6, 29, 8, 3, 'Thank You.', '2026-08-14 20:12:22', '2026-08-14 20:12:22');
 
 -- --------------------------------------------------------
 
@@ -1042,13 +1102,13 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `claims`
 --
 ALTER TABLE `claims`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `community_posts`
 --
 ALTER TABLE `community_posts`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT for table `contact_messages`
@@ -1084,7 +1144,7 @@ ALTER TABLE `jobs`
 -- AUTO_INCREMENT for table `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 
 --
 -- AUTO_INCREMENT for table `migrations`
@@ -1096,19 +1156,19 @@ ALTER TABLE `migrations`
 -- AUTO_INCREMENT for table `personal_access_tokens`
 --
 ALTER TABLE `personal_access_tokens`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=82;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=101;
 
 --
 -- AUTO_INCREMENT for table `saved_posts`
 --
 ALTER TABLE `saved_posts`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `support_conversations`
 --
 ALTER TABLE `support_conversations`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `users`
@@ -1120,13 +1180,13 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `user_notifications`
 --
 ALTER TABLE `user_notifications`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=126;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=162;
 
 --
 -- AUTO_INCREMENT for table `user_ratings`
 --
 ALTER TABLE `user_ratings`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `webhook_deliveries`
